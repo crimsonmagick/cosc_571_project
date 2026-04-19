@@ -1,8 +1,10 @@
 plugins {
     id 'java'
+    id 'groovy'
+    id 'idea'
 }
 
-group = 'org.example'
+group = 'dev.welbyseely.emu'
 version = '1.0-SNAPSHOT'
 
 repositories {
@@ -10,11 +12,25 @@ repositories {
 }
 
 dependencies {
+    // junit
     testImplementation platform('org.junit:junit-bom:5.10.0')
     testImplementation 'org.junit.jupiter:junit-jupiter'
     testRuntimeOnly 'org.junit.platform:junit-platform-launcher'
+
+    // spock
+    testImplementation 'org.spockframework:spock-core:2.4-M7-groovy-4.0'
 }
 
 test {
     useJUnitPlatform()
+    testLogging {
+        events "started", "passed", "skipped", "failed"
+    }
+}
+
+idea {
+    module {
+        downloadJavadoc = true
+        downloadSources = true
+    }
 }
