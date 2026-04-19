@@ -1,5 +1,8 @@
 package dev.welbyseely.emu.dbms.tree;
 
+import java.util.ArrayList;
+import java.util.List;
+
 class Node<T extends Comparable<T>> {
 
   T key;
@@ -94,49 +97,50 @@ public class BinarySearchTree<T extends Comparable<T>> {
       return true;
     }
     if (comparison < 0) {
-      return searchRec(root.right, key);
+      return searchRec(root.left, key);
     }
-    return searchRec(root.left, key);
+    return searchRec(root.right, key);
   }
 
-  public void inorder() {
-    inorderRec(root);
-    System.out.println("\n");
+  public List<T> inorder() {
+    List<T> result = new ArrayList<>();
+    inorderRec(root, result);
+    return result;
   }
 
-  void inorderRec(Node<T> root) {
+  private void inorderRec(Node<T> root, List<T> result) {
     if (root != null) {
-      inorderRec(root.left);
-      System.out.print(root.key + " ");
-      inorderRec(root.right);
-    }
-  }
-
-  public void preorder() {
-    preorderRec(root);
-    System.out.println("\n");
-
-  }
-
-  void preorderRec(Node<T> root) {
-    if (root != null) {
-      System.out.print(root.key + " ");
-      preorderRec(root.left);
-      preorderRec(root.right);
+      inorderRec(root.left, result);
+      result.add(root.key);
+      inorderRec(root.right, result);
     }
   }
 
-  // Postorder traversal
-  public void postorder() {
-    postorderRec(root);
-    System.out.println("\n");
+  public List<T> preorder() {
+    List<T> result = new ArrayList<>();
+    preorderRec(root, result);
+    return result;
   }
 
-  void postorderRec(Node<T> root) {
+  void preorderRec(Node<T> root, List<T> result) {
     if (root != null) {
-      postorderRec(root.left);
-      postorderRec(root.right);
-      System.out.print(root.key + " ");
+      result.add(root.key);
+      preorderRec(root.left, result);
+      preorderRec(root.right, result);
+    }
+  }
+
+  public List<T> postorder() {
+    List<T> result = new ArrayList<>();
+    postorderRec(root, result);
+    return result;
+  }
+
+  void postorderRec(Node<T> root, List<T> result) {
+    if (root != null) {
+      postorderRec(root.left, result);
+      postorderRec(root.right, result);
+      result.add(root.key);
     }
   }
 
