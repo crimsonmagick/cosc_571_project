@@ -3,13 +3,15 @@ package dev.welbyseely.emu.dbms.tree;
 import java.util.ArrayList;
 import java.util.List;
 
-class Node<T extends Comparable<T>> {
+class Node<T extends Comparable<? super T>, V> {
 
   T key;
-  Node<T> left, right;
+  V value;
+  Node<T, V> left, right;
 
-  public Node(T key) {
+  public Node(T key, V value) {
     this.key = key;
+    this.value = value;
     this.left = right = null;
   }
 }
@@ -18,28 +20,28 @@ class Node<T extends Comparable<T>> {
  * Based on <a
  * href="https://www.geeksforgeeks.org/java/java-program-to-construct-a-binary-search-tree/">...</a>
  */
-public class BinarySearchTree<T extends Comparable<T>> {
+public class BinarySearchTree<T extends Comparable<? super T>, V> {
 
-  Node<T> root;
+  Node<T, V> root;
 
   public BinarySearchTree() {
     root = null;
   }
 
-  public void insert(T key) {
-    root = insertRec(root, key);
+  public void insert(T key, V value) {
+    root = insertRec(root, key, value);
   }
 
-  Node<T> insertRec(Node<T> root, T key) {
+  Node<T, V> insertRec(Node<T, V> root, T key, V value) {
     if (root == null) {
-      root = new Node<>(key);
+      root = new Node<>(key, value);
       return root;
     }
     final int comparison = key.compareTo(root.key);
     if (comparison < 0) {
-      root.left = insertRec(root.left, key);
+      root.left = insertRec(root.left, key, value);
     } else if (comparison > 0) {
-      root.right = insertRec(root.right, key);
+      root.right = insertRec(root.right, key, value);
     } else {
       throw new DuplicateEntry(key);
     }
@@ -51,7 +53,7 @@ public class BinarySearchTree<T extends Comparable<T>> {
     root = deleteRec(root, key);
   }
 
-  Node<T> deleteRec(Node<T> root, T key) {
+  Node<T, V> deleteRec(Node<T, V> root, T key) {
     if (root == null) {
       return root;
     }
@@ -68,33 +70,37 @@ public class BinarySearchTree<T extends Comparable<T>> {
         return root.left;
       }
 
-      root.key = minValue(root.right);
+      ResultEntry<T, V> minResult = minKey(root.right);
+      root.key = minResult.key();
+      root.value = minResult.value();
       root.right = deleteRec(root.right, root.key);
     }
 
     return root;
   }
 
-  T minValue(Node<T> root) {
-    T minv = root.key;
+  ResultEntry<T, V> minKey(Node<T, V> root) {
+    T mink = root.key;
+    V minv = root.value;
     while (root.left != null) {
-      minv = root.left.key;
+      mink = root.left.key;
+      minv = root.left.value;
       root = root.left;
     }
-    return minv;
+    return new ResultEntry<>(mink, minv);
   }
 
-  public boolean search(T key) {
+  public ResultEntry<T, V> search(T key) {
     return searchRec(root, key);
   }
 
-  boolean searchRec(Node<T> root, T key) {
+  ResultEntry<T, V> searchRec(Node<T, V> root, T key) {
     if (root == null) {
-      return false;
+      return null;
     }
     final int comparison = key.compareTo(root.key);
     if (comparison == 0) {
-      return true;
+      return new ResultEntry<>(root.key, root.value);
     }
     if (comparison < 0) {
       return searchRec(root.left, key);
@@ -102,45 +108,48 @@ public class BinarySearchTree<T extends Comparable<T>> {
     return searchRec(root.right, key);
   }
 
-  public List<T> inorder() {
-    List<T> result = new ArrayList<>();
+  public List<ResultEntry<T, V>> inorder() {
+    List<ResultEntry<T, V>> result = new ArrayList<>();
     inorderRec(root, result);
     return result;
   }
 
-  private void inorderRec(Node<T> root, List<T> result) {
+  private void inorderRec(Node<T, V> root, List<ResultEntry<T, V>> result) {
     if (root != null) {
       inorderRec(root.left, result);
-      result.add(root.key);
+      final ResultEntry<T, V> resultEntry = new ResultEntry<>(root.key, root.value);
+      result.add(resultEntry);
       inorderRec(root.right, result);
     }
   }
 
-  public List<T> preorder() {
-    List<T> result = new ArrayList<>();
+  public List<ResultEntry<T, V>> preorder() {
+    List<ResultEntry<T, V>> result = new ArrayList<>();
     preorderRec(root, result);
     return result;
   }
 
-  void preorderRec(Node<T> root, List<T> result) {
+  void preorderRec(Node<T, V> root, List<ResultEntry<T, V>> result) {
     if (root != null) {
-      result.add(root.key);
+      ResultEntry<T, V> resultEntry = new ResultEntry<>(root.key, root.value);
+      result.add(resultEntry);
       preorderRec(root.left, result);
       preorderRec(root.right, result);
     }
   }
 
-  public List<T> postorder() {
-    List<T> result = new ArrayList<>();
+  public List<ResultEntry<T, V>> postorder() {
+    List<ResultEntry<T, V>> result = new ArrayList<>();
     postorderRec(root, result);
     return result;
   }
 
-  void postorderRec(Node<T> root, List<T> result) {
+  void postorderRec(Node<T, V> root, List<ResultEntry<T, V>> result) {
     if (root != null) {
       postorderRec(root.left, result);
       postorderRec(root.right, result);
-      result.add(root.key);
+      final ResultEntry<T, V> resultEntry = new ResultEntry<>(root.key, root.value);
+      result.add(resultEntry);
     }
   }
 
