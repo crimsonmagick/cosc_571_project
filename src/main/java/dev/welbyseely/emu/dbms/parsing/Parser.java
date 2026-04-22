@@ -1,22 +1,22 @@
 package dev.welbyseely.emu.dbms.parsing;
 
 import dev.welbyseely.emu.dbms.exception.DbmsParseException;
-import dev.welbyseely.emu.dbms.parsing.query.Comparison;
-import dev.welbyseely.emu.dbms.parsing.query.Expression;
-import dev.welbyseely.emu.dbms.parsing.query.Logical;
-import dev.welbyseely.emu.dbms.parsing.query.SelectQuery;
+import dev.welbyseely.emu.dbms.query.Comparison;
+import dev.welbyseely.emu.dbms.query.Expression;
+import dev.welbyseely.emu.dbms.query.Logical;
+import dev.welbyseely.emu.dbms.query.SelectQuery;
 import dev.welbyseely.emu.dbms.parsing.tokens.Token;
 import dev.welbyseely.emu.dbms.parsing.tokens.TokenType;
 import dev.welbyseely.emu.dbms.parsing.tokens.Tokenizer;
 import java.util.ArrayList;
 import java.util.List;
 
-class Parser {
+public class Parser {
 
   private final List<Token> tokens;
   private int pos = 0;
 
-  Parser(final List<Token> tokens) {
+  public Parser(final List<Token> tokens) {
     this.tokens = tokens;
   }
 

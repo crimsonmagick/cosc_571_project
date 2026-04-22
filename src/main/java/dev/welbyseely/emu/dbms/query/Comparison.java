@@ -1,4 +1,4 @@
-package dev.welbyseely.emu.dbms.parsing.query;
+package dev.welbyseely.emu.dbms.query;
 
 public record Comparison(String left, String op, String right) implements Expression {
 

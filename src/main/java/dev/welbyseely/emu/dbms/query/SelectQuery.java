@@ -1,4 +1,4 @@
-package dev.welbyseely.emu.dbms.parsing.query;
+package dev.welbyseely.emu.dbms.query;
 
 import java.util.List;
 

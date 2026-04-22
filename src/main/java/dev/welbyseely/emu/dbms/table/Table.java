@@ -94,4 +94,8 @@ public class Table {
 
     return value;
   }
+
+  public Schema getSchema() {
+    return schema;
+  }
 }
