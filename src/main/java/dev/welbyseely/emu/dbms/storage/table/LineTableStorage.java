@@ -1,4 +1,4 @@
-package dev.welbyseely.emu.dbms.storage;
+package dev.welbyseely.emu.dbms.storage.table;
 
 import dev.welbyseely.emu.dbms.exception.TableStorageException;
 import dev.welbyseely.emu.dbms.schema.Attribute;

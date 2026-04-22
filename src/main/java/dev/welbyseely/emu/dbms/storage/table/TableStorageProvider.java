@@ -1,4 +1,7 @@
-package dev.welbyseely.emu.dbms.storage;
+package dev.welbyseely.emu.dbms.storage.table;
+
+import static dev.welbyseely.emu.dbms.constants.DirUtil.TABLE_EXTENSION;
+import static dev.welbyseely.emu.dbms.constants.DirUtil.resolveBaseDir;
 
 import dev.welbyseely.emu.dbms.exception.TableStorageException;
 import dev.welbyseely.emu.dbms.schema.Attribute;
@@ -12,22 +15,9 @@ import java.util.Map;
 
 public class TableStorageProvider {
 
-  private static final String TABLE_EXTENSION = ".tbl";
-  private static final String DB_PATH_PROPERTY = "db.path";
-  private static final String DEFAULT_DB_DIR = "cosc_571_db";
-
-private static Path baseDbPath() {
-  final String configuredPath = System.getProperty(DB_PATH_PROPERTY);
-
-  if (configuredPath != null && !configuredPath.isBlank()) {
-    return Path.of(configuredPath);
-  }
-
-  return Path.of(System.getProperty("user.dir"), DEFAULT_DB_DIR);
-}
 
   private static Path tableStoragePath(final Schema schema) {
-    return baseDbPath().resolve(schema.schemaName() + TABLE_EXTENSION);
+    return resolveBaseDir().resolve(schema.schemaName() + TABLE_EXTENSION);
   }
 
   public static TableStorage createTableStorage(final Schema schema) {
@@ -52,7 +42,7 @@ private static Path baseDbPath() {
   }
 
   private static List<Path> tablePaths() {
-    final Path base = baseDbPath();
+    final Path base = resolveBaseDir();
 
     if (!Files.exists(base) || !Files.isDirectory(base)) {
       throw new TableStorageException(
