@@ -76,7 +76,7 @@ public class EvaluatorMain {
 
     Tokenizer tokenizer = new Tokenizer();
 
-    String sql = "SELECT name, gpa FROM st WHERE id = 3";
+    String sql = "SELECT name, gpa FROM STuDEnT WHERE gpa> 3";
 
     List<Token> tokens = tokenizer.tokenize(sql);
 

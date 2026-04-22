@@ -15,7 +15,7 @@ public class TableManagerImpl implements TableManager {
 
   @Override
   public Table getTable(final String name) {
-    return cache.computeIfAbsent(name, this::loadTable);
+    return cache.computeIfAbsent(name.toLowerCase(), this::loadTable);
   }
 
   private Table loadTable(String name) {

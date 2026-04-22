@@ -10,4 +10,10 @@ public record Schema(String schemaName, List<Attribute> attributes) {
     this.attributes = Collections.unmodifiableList(attributes);
   }
 
+  public Attribute getAttribute(final String attrName) {
+    return attributes.stream().filter(attr -> attrName.equals(attr.name()))
+        .findFirst()
+        .orElseThrow(() -> new RuntimeException("Can't find attribute with name=" + attrName));
+  }
+
 }
