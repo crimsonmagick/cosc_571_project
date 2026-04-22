@@ -50,10 +50,20 @@ public class PrimaryIndex<T extends Comparable<? super T>> {
     }
   }
 
+  @SuppressWarnings("unchecked")
+  public void insertUntyped(final Comparable<?> key, final RecordPointer pointer) {
+    insert((T) key, pointer);
+  }
+
   public void insert(T key, RecordPointer recordPointer) {
     assertNotRemoved();
     tree.insert(key, recordPointer);
     indexStorage.write(tree);
+  }
+
+  @SuppressWarnings("unchecked")
+  public Optional<RecordPointer> searchUntyped(final Comparable<?> key) {
+    return search((T) key);
   }
 
   public Optional<RecordPointer> search(final T key) {

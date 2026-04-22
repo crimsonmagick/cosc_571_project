@@ -3,6 +3,7 @@ package dev.welbyseely.emu.dbms.table;
 import dev.welbyseely.emu.dbms.schema.Attribute;
 import dev.welbyseely.emu.dbms.schema.DataType;
 import dev.welbyseely.emu.dbms.schema.Schema;
+import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.List;
 import java.util.Map;
@@ -21,12 +22,15 @@ public class TableProviderMain {
         )
     );
 
-    final Table<Integer> table = TableProvider.create(
-        schema,
-        DataType.INTEGER,
-        (String s) -> Integer.parseInt(s),
-        (Integer i) -> i.toString()
-    );
+    final Path baseDir = resolveBaseDir();
+    final Path tablePath = baseDir.resolve(schema.schemaName() + ".tbl");
+    final Path indexPath = baseDir.resolve(schema.schemaName() + "_pk.idx");
+
+    // clean run (important for repeatability)
+    Files.deleteIfExists(tablePath);
+    Files.deleteIfExists(indexPath);
+
+    final Table table = TableProvider.create(schema);
 
     System.out.println("=== Inserting rows ===");
 
@@ -58,15 +62,9 @@ public class TableProviderMain {
     System.out.println("id=3 -> " + table.getByPrimaryKey(3));
     System.out.println("id=999 -> " + table.getByPrimaryKey(999));
 
-    final Path tablePath = resolveBaseDir().resolve(schema.schemaName() + ".tbl");
-
     System.out.println("\n=== Reloading table from disk ===");
-    final Table<Integer> reloaded = TableProvider.load(
-        tablePath,
-        DataType.INTEGER,
-        (String s) -> Integer.parseInt(s),
-        (Integer i) -> i.toString()
-    );
+
+    final Table reloaded = TableProvider.load(tablePath);
 
     System.out.println("\n=== Scan after reload ===");
     for (Row row : reloaded.scan()) {

@@ -9,16 +9,16 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
 
-public class Table<K extends Comparable<? super K>> {
+public class Table {
 
   private final Schema schema;
   private final TableStorage tableStorage;
-  private final PrimaryIndex<K> index;
+  private final PrimaryIndex<?> index;
 
   public Table(
       final Schema schema,
       final TableStorage tableStorage,
-      final PrimaryIndex<K> primaryIndex
+      final PrimaryIndex<?> primaryIndex
   ) {
     this.schema = schema;
     this.tableStorage = tableStorage;
@@ -38,19 +38,25 @@ public class Table<K extends Comparable<? super K>> {
     return rows;
   }
 
-  public Optional<Row> getByPrimaryKey(final K key) {
+  @SuppressWarnings("unchecked")
+  public Optional<Row> getByPrimaryKey(final Object key) {
     if (index == null) {
       return Optional.empty();
     }
 
-    return index.search(key)
+    if (!(key instanceof Comparable<?> comparable)) {
+      throw new IllegalArgumentException("Primary key must be Comparable: " + key);
+    }
+
+    return ((PrimaryIndex<Comparable<Object>>) index)
+        .search((Comparable<Object>) comparable)
         .map(tableStorage::read);
   }
 
   public RecordPointer insert(final Row row) {
     if (index != null) {
-      final K primaryKey = extractPrimaryKey(row);
-      if (index.search(primaryKey).isPresent()) {
+      final Comparable<?> primaryKey = extractPrimaryKey(row);
+      if (index.searchUntyped(primaryKey).isPresent()) {
         throw new IllegalStateException("Duplicate primary key: " + primaryKey);
       }
     }
@@ -58,8 +64,8 @@ public class Table<K extends Comparable<? super K>> {
     final RecordPointer pointer = tableStorage.insert(row);
 
     if (index != null) {
-      final K primaryKey = extractPrimaryKey(row);
-      index.insert(primaryKey, pointer);
+      final Comparable<?> key = extractPrimaryKey(row);
+      index.insertUntyped(key, pointer);
     }
 
     return pointer;
@@ -73,20 +79,19 @@ public class Table<K extends Comparable<? super K>> {
     }
   }
 
-  @SuppressWarnings("unchecked")
-  private K extractPrimaryKey(final Row row) {
+  private Comparable<?> extractPrimaryKey(final Row row) {
     final Attribute primaryKeyAttribute = schema.attributes()
         .stream()
         .filter(Attribute::primaryKey)
         .findFirst()
         .orElseThrow(() -> new IllegalStateException("Table has no primary key"));
 
-    final Object value = row.get(primaryKeyAttribute.name());
+    final Comparable<?> value = (Comparable<?>) row.get(primaryKeyAttribute.name());
     if (value == null) {
       throw new IllegalStateException(
           "Primary key value is null for attribute " + primaryKeyAttribute.name());
     }
 
-    return (K) value;
+    return value;
   }
 }
