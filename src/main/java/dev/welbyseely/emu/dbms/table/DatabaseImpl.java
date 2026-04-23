@@ -18,7 +18,6 @@ import dev.welbyseely.emu.dbms.commands.results.VoidResult;
 import dev.welbyseely.emu.dbms.evaluation.Evaluator;
 import dev.welbyseely.emu.dbms.exception.TableAlreadyExistsException;
 import dev.welbyseely.emu.dbms.exception.TableDoesNotExistException;
-import dev.welbyseely.emu.dbms.exception.TableStorageException;
 import dev.welbyseely.emu.dbms.exception.TableStorageFileAlreadyExistsException;
 import dev.welbyseely.emu.dbms.index.PrimaryIndex;
 import dev.welbyseely.emu.dbms.commands.query.PreparedQuery;
@@ -45,372 +44,372 @@ import java.util.Set;
 
 public class DatabaseImpl implements Database {
 
-    private final String dbName;
-    private final Path dbPath;
-    private final Map<String, Table> cache = new HashMap<>();
-    private final QueryEngine queryEngine;
-    private final Evaluator evaluator = new Evaluator();
+  private final String dbName;
+  private final Path dbPath;
+  private final Map<String, Table> cache = new HashMap<>();
+  private final QueryEngine queryEngine;
+  private final Evaluator evaluator = new Evaluator();
 
-    public DatabaseImpl(final String dbName) {
-        this.dbName = dbName;
-        this.dbPath = resolveBaseDir().resolve(dbName);
-        this.queryEngine = new QueryEngine(this);
+  public DatabaseImpl(final String dbName) {
+    this.dbName = dbName;
+    this.dbPath = resolveBaseDir().resolve(dbName);
+    this.queryEngine = new QueryEngine(this);
+  }
+
+  public Table createTable(Schema schema) {
+    final TableStorage storage;
+    try {
+      storage = TableStorageProvider.createTableStorage(schema, dbPath);
+    } catch (TableStorageFileAlreadyExistsException e) {
+      throw new TableAlreadyExistsException("Table " + schema.schemaName() + " already exists", e);
     }
 
-    public Table createTable(Schema schema) {
-        final TableStorage storage;
-        try {
-            storage = TableStorageProvider.createTableStorage(schema, dbPath);
-        } catch (TableStorageFileAlreadyExistsException e) {
-            throw new TableAlreadyExistsException("Table " + schema.schemaName() + " already exists", e);
+    PrimaryIndex<?> index = buildIndex(schema);
+
+    return new Table(schema, storage, index);
+  }
+
+  public Table getTable(String name) {
+    return cache.computeIfAbsent(name.toLowerCase(), this::loadTable);
+  }
+
+  @Override
+  public String getName() {
+    return dbName;
+  }
+
+  @Override
+  public Result executeQuery(final PreparedQuery preparedQuery) {
+    if (preparedQuery instanceof SelectQuery q) {
+      var rows = queryEngine.executeSelect(q);
+      return new TupleResult(rows);
+    }
+    if (preparedQuery instanceof CreateTableQuery(String table, List<Attribute> attributes)) {
+      final Schema schema = new Schema(table, attributes);
+      cache.put(schema.schemaName().toLowerCase(), createTable(schema));
+      return new VoidResult();
+    }
+    if (preparedQuery instanceof InsertQuery(String tableName, List<String> values)) {
+      final Table table = getTable(tableName);
+      final Schema schema = table.getSchema();
+
+      final List<Attribute> attrs = schema.attributes();
+
+      if (values.size() != attrs.size()) {
+        throw new RuntimeException(
+            "Value count does not match schema. Expected " + attrs.size() +
+                " but got " + values.size());
+      }
+
+      final LinkedHashMap<String, Object> rowValues = new LinkedHashMap<>();
+
+      for (int i = 0; i < attrs.size(); i++) {
+        Attribute attr = attrs.get(i);
+        String raw = values.get(i);
+
+        DataType type = DataType.valueOf(attr.type());
+        Object parsed = parse(raw, type);
+
+        rowValues.put(attr.name(), parsed);
+      }
+
+      Row row = new Row(rowValues);
+      table.insert(row);
+      return new VoidResult();
+    }
+    if (preparedQuery instanceof DescribeQuery dq) {
+      if (dq.all()) {
+        List<Schema> schemas = loadAllSchemas();
+        return new MessageResult(formatDescribeAll(schemas));
+      }
+
+      Table table = getTable(dq.table());
+      return new MessageResult(formatDescribe(table.getSchema()));
+    }
+    if (preparedQuery instanceof UpdateQuery uq) {
+
+      Table table = getTable(uq.table());
+      Schema schema = table.getSchema();
+      Evaluator evaluator = new Evaluator();
+
+      // Phase 1: collect updates
+      List<RowEntry> matches = new ArrayList<>();
+      List<Row> newRows = new ArrayList<>();
+
+      for (RowEntry entry : table.scan()) {
+        Row row = entry.row();
+
+        if (evaluator.eval(uq.where(), row, schema)) {
+
+          Row newRow = new Row(new LinkedHashMap<>(row.values()));
+
+          for (var e : uq.updates().entrySet()) {
+            Attribute attr = schema.getAttribute(e.getKey());
+            Object parsed = parse(e.getValue(), DataType.valueOf(attr.type()));
+            newRow.values().put(attr.name(), parsed);
+          }
+
+          matches.add(entry);
+          newRows.add(newRow);
+        }
+      }
+
+      // Phase 2: validate PK constraints
+      Attribute pkAttr = schema.attributes().stream()
+          .filter(Attribute::primaryKey)
+          .findFirst()
+          .orElse(null);
+
+      if (pkAttr != null) {
+
+        Set<Object> newKeys = new HashSet<>();
+
+        Set<Object> oldKeys = new HashSet<>();
+
+        for (int i = 0; i < matches.size(); i++) {
+          Row oldRow = matches.get(i).row();
+          Row newRow = newRows.get(i);
+
+          Object oldKey = oldRow.get(pkAttr.name());
+          Object newKey = newRow.get(pkAttr.name());
+
+          oldKeys.add(oldKey);
+
+          // duplicate within update set
+          if (!newKeys.add(newKey)) {
+            throw new RuntimeException("Duplicate primary key: " + newKey);
+          }
         }
 
-        PrimaryIndex<?> index = buildIndex(schema);
+        // Check conflicts with existing rows NOT being updated
+        for (Object newKey : newKeys) {
+          var existing = table.getByPrimaryKey(newKey);
 
-        return new Table(schema, storage, index);
+          if (existing.isPresent()) {
+            Object existingKey = existing.get().get(pkAttr.name());
+
+            // if it's not one of the rows we're replacing → conflict
+            if (!oldKeys.contains(existingKey)) {
+              throw new RuntimeException("Duplicate primary key: " + newKey);
+            }
+          }
+        }
+      }
+
+      // Phase 3: apply updates
+      for (int i = 0; i < matches.size(); i++) {
+        RowEntry entry = matches.get(i);
+        Row newRow = newRows.get(i);
+
+        table.update(entry.pointer(), newRow);
+      }
+
+      return new VoidResult();
+    }
+    if (preparedQuery instanceof DeleteQuery dq) {
+
+      Table table = getTable(dq.table());
+      Schema schema = table.getSchema();
+      Evaluator evaluator = new Evaluator();
+
+      if (dq.where() == null) {
+        table.drop();
+        cache.remove(dq.table().toLowerCase());
+        return new MessageResult("Deleted table " + table.getSchema().schemaName());
+      }
+
+      List<RecordPointer> toDelete = new ArrayList<>();
+
+      for (RowEntry entry : table.scan()) {
+        if (evaluator.eval(dq.where(), entry.row(), schema)) {
+          toDelete.add(entry.pointer());
+        }
+      }
+
+      for (RecordPointer ptr : toDelete) {
+        table.delete(ptr);
+      }
+
+      return new MessageResult("Deleted table " + table.getSchema().schemaName());
+    }
+    if (preparedQuery instanceof RenameQuery rq) {
+      Table table = getTable(rq.table());
+      table.rename(rq.newNames());
+      return new VoidResult();
+    }
+    if (preparedQuery instanceof LetQuery lq) {
+
+      // run SELECT
+      List<Row> rows = queryEngine.executeSelect(lq.select());
+
+      List<String> columns = lq.select().columns();
+
+      // validate key exists
+      if (!columns.contains(lq.key())) {
+        throw new RuntimeException("KEY must be one of selected attributes");
+      }
+
+      List<Attribute> attrs = new ArrayList<>();
+
+      for (String col : columns) {
+        DataType type = resolveColumnType(lq.select(), col);
+        boolean isPk = col.equals(lq.key());
+
+        attrs.add(new Attribute(col, type.name(), isPk));
+      }
+
+      Schema schema = new Schema(lq.table(), attrs);
+
+      Table table = createTable(schema);
+      cache.put(schema.schemaName(), table);
+
+      for (Row row : rows) {
+        table.insert(row);
+      }
+
+      return new VoidResult();
+    }
+    throw new UnsupportedOperationException(
+        "Unsupported preparedQuery type, class=" + preparedQuery.getClass());
+  }
+
+  private DataType resolveColumnType(SelectQuery select, String column) {
+
+    DataType foundType = null;
+
+    for (String tableName : select.tables()) {
+      Table table = getTable(tableName);
+      Schema schema = table.getSchema();
+
+      if (schema.hasAttribute(column)) {
+        DataType type = DataType.valueOf(schema.getAttribute(column).type());
+
+        if (foundType != null) {
+          throw new RuntimeException("Ambiguous column: " + column);
+        }
+
+        foundType = type;
+      }
     }
 
-    public Table getTable(String name) {
-        return cache.computeIfAbsent(name.toLowerCase(), this::loadTable);
+    if (foundType == null) {
+      throw new RuntimeException("Unknown column: " + column);
     }
 
-    @Override
-    public String getName() {
-        return dbName;
+    return foundType;
+  }
+
+  private String formatDescribe(Schema schema) {
+    StringBuilder sb = new StringBuilder();
+
+    sb.append(schema.schemaName().toUpperCase()).append("\n");
+
+    for (Attribute attr : schema.attributes()) {
+      sb.append(attr.name().toUpperCase())
+          .append(": ")
+          .append(formatType(attr.type()));
+
+      if (attr.primaryKey()) {
+        sb.append(" PRIMARY KEY");
+      }
+
+      sb.append("\n");
     }
 
-    @Override
-    public Result executeQuery(final PreparedQuery preparedQuery) {
-        if (preparedQuery instanceof SelectQuery q) {
-            var rows = queryEngine.executeSelect(q);
-            return new TupleResult(rows);
-        }
-        if (preparedQuery instanceof CreateTableQuery(String table, List<Attribute> attributes)) {
-            final Schema schema = new Schema(table, attributes);
-            cache.put(schema.schemaName().toLowerCase(), createTable(schema));
-            return new VoidResult();
-        }
-        if (preparedQuery instanceof InsertQuery(String tableName, List<String> values)) {
-            final Table table = getTable(tableName);
-            final Schema schema = table.getSchema();
+    return sb.toString().trim();
+  }
 
-            final List<Attribute> attrs = schema.attributes();
+  private String formatDescribeAll(List<Schema> schemas) {
+    return schemas.stream()
+        .map(this::formatDescribe)
+        .reduce((a, b) -> a + "\n\n" + b)
+        .orElse("");
+  }
 
-            if (values.size() != attrs.size()) {
-                throw new RuntimeException(
-                        "Value count does not match schema. Expected " + attrs.size() +
-                                " but got " + values.size());
-            }
+  private String formatType(String type) {
+    return switch (type.toUpperCase()) {
+      case "INTEGER" -> "Integer";
+      case "FLOAT" -> "Float";
+      case "TEXT" -> "Text";
+      default -> type;
+    };
+  }
 
-            final LinkedHashMap<String, Object> rowValues = new LinkedHashMap<>();
+  private List<Schema> loadAllSchemas() {
+    try (var stream = Files.list(dbPath)) {
+      return stream
+          .filter(p -> p.getFileName().toString().endsWith(".tbl"))
+          .map(TableStorageProvider::readTableStorage)
+          .map(TableStorage::getSchema)
+          .toList();
+    } catch (Exception e) {
+      throw new RuntimeException("Failed to list tables in " + dbPath, e);
+    }
+  }
 
-            for (int i = 0; i < attrs.size(); i++) {
-                Attribute attr = attrs.get(i);
-                String raw = values.get(i);
 
-                DataType type = DataType.valueOf(attr.type());
-                Object parsed = parse(raw, type);
+  private Table loadTable(String name) {
+    Path tablePath = dbPath.resolve(name.toLowerCase() + ".tbl");
 
-                rowValues.put(attr.name(), parsed);
-            }
-
-            Row row = new Row(rowValues);
-            table.insert(row);
-            return new VoidResult();
-        }
-        if (preparedQuery instanceof DescribeQuery dq) {
-            if (dq.all()) {
-                List<Schema> schemas = loadAllSchemas();
-                return new MessageResult(formatDescribeAll(schemas));
-            }
-
-            Table table = getTable(dq.table());
-            return new MessageResult(formatDescribe(table.getSchema()));
-        }
-        if (preparedQuery instanceof UpdateQuery uq) {
-
-            Table table = getTable(uq.table());
-            Schema schema = table.getSchema();
-            Evaluator evaluator = new Evaluator();
-
-            // Phase 1: collect updates
-            List<RowEntry> matches = new ArrayList<>();
-            List<Row> newRows = new ArrayList<>();
-
-            for (RowEntry entry : table.scan()) {
-                Row row = entry.row();
-
-                if (evaluator.eval(uq.where(), row, schema)) {
-
-                    Row newRow = new Row(new LinkedHashMap<>(row.values()));
-
-                    for (var e : uq.updates().entrySet()) {
-                        Attribute attr = schema.getAttribute(e.getKey());
-                        Object parsed = parse(e.getValue(), DataType.valueOf(attr.type()));
-                        newRow.values().put(attr.name(), parsed);
-                    }
-
-                    matches.add(entry);
-                    newRows.add(newRow);
-                }
-            }
-
-            // Phase 2: validate PK constraints
-            Attribute pkAttr = schema.attributes().stream()
-                    .filter(Attribute::primaryKey)
-                    .findFirst()
-                    .orElse(null);
-
-            if (pkAttr != null) {
-
-                Set<Object> newKeys = new HashSet<>();
-
-                Set<Object> oldKeys = new HashSet<>();
-
-                for (int i = 0; i < matches.size(); i++) {
-                    Row oldRow = matches.get(i).row();
-                    Row newRow = newRows.get(i);
-
-                    Object oldKey = oldRow.get(pkAttr.name());
-                    Object newKey = newRow.get(pkAttr.name());
-
-                    oldKeys.add(oldKey);
-
-                    // duplicate within update set
-                    if (!newKeys.add(newKey)) {
-                        throw new RuntimeException("Duplicate primary key: " + newKey);
-                    }
-                }
-
-                // Check conflicts with existing rows NOT being updated
-                for (Object newKey : newKeys) {
-                    var existing = table.getByPrimaryKey(newKey);
-
-                    if (existing.isPresent()) {
-                        Object existingKey = existing.get().get(pkAttr.name());
-
-                        // if it's not one of the rows we're replacing → conflict
-                        if (!oldKeys.contains(existingKey)) {
-                            throw new RuntimeException("Duplicate primary key: " + newKey);
-                        }
-                    }
-                }
-            }
-
-            // Phase 3: apply updates
-            for (int i = 0; i < matches.size(); i++) {
-                RowEntry entry = matches.get(i);
-                Row newRow = newRows.get(i);
-
-                table.update(entry.pointer(), newRow);
-            }
-
-            return new VoidResult();
-        }
-        if (preparedQuery instanceof DeleteQuery dq) {
-
-            Table table = getTable(dq.table());
-            Schema schema = table.getSchema();
-            Evaluator evaluator = new Evaluator();
-
-            if (dq.where() == null) {
-                table.drop();
-                cache.remove(dq.table().toLowerCase());
-                return new VoidResult();
-            }
-
-            List<RecordPointer> toDelete = new ArrayList<>();
-
-            for (RowEntry entry : table.scan()) {
-                if (evaluator.eval(dq.where(), entry.row(), schema)) {
-                    toDelete.add(entry.pointer());
-                }
-            }
-
-            for (RecordPointer ptr : toDelete) {
-                table.delete(ptr);
-            }
-
-            return new VoidResult();
-        }
-        if (preparedQuery instanceof RenameQuery rq) {
-            Table table = getTable(rq.table());
-            table.rename(rq.newNames());
-            return new VoidResult();
-        }
-        if (preparedQuery instanceof LetQuery lq) {
-
-            // run SELECT
-            List<Row> rows = queryEngine.executeSelect(lq.select());
-
-            List<String> columns = lq.select().columns();
-
-            // validate key exists
-            if (!columns.contains(lq.key())) {
-                throw new RuntimeException("KEY must be one of selected attributes");
-            }
-
-            List<Attribute> attrs = new ArrayList<>();
-
-            for (String col : columns) {
-                DataType type = resolveColumnType(lq.select(), col);
-                boolean isPk = col.equals(lq.key());
-
-                attrs.add(new Attribute(col, type.name(), isPk));
-            }
-
-            Schema schema = new Schema(lq.table(), attrs);
-
-            Table table = createTable(schema);
-            cache.put(schema.schemaName(), table);
-
-            for (Row row : rows) {
-                table.insert(row);
-            }
-
-            return new VoidResult();
-        }
-        throw new UnsupportedOperationException(
-                "Unsupported preparedQuery type, class=" + preparedQuery.getClass());
+    if (!Files.exists(tablePath)) {
+      throw new TableDoesNotExistException(name);
     }
 
-    private DataType resolveColumnType(SelectQuery select, String column) {
+    TableStorage storage = TableStorageProvider.readTableStorage(tablePath);
+    Schema schema = storage.getSchema();
 
-        DataType foundType = null;
+    PrimaryIndex<?> index = buildIndex(schema);
 
-        for (String tableName : select.tables()) {
-            Table table = getTable(tableName);
-            Schema schema = table.getSchema();
+    Table table = new Table(schema, storage, index);
+    cache.put(schema.schemaName(), table);
+    return table;
+  }
 
-            if (schema.hasAttribute(column)) {
-                DataType type = DataType.valueOf(schema.getAttribute(column).type());
-
-                if (foundType != null) {
-                    throw new RuntimeException("Ambiguous column: " + column);
-                }
-
-                foundType = type;
-            }
-        }
-
-        if (foundType == null) {
-            throw new RuntimeException("Unknown column: " + column);
-        }
-
-        return foundType;
+  private PrimaryIndex<?> buildIndex(Schema schema) {
+    Attribute pk = getPrimaryKeyAttribute(schema);
+    if (pk == null) {
+      return null;
     }
 
-    private String formatDescribe(Schema schema) {
-        StringBuilder sb = new StringBuilder();
+    String indexName = schema.schemaName() + "_pk";
+    DataType type = DataType.valueOf(pk.type());
 
-        sb.append(schema.schemaName().toUpperCase()).append("\n");
+    return switch (type) {
+      case INTEGER -> new PrimaryIndex<>(
+          new BinarySearchTree<Integer, RecordPointer>(),
+          indexName,
+          dbPath,
+          type,
+          Integer::parseInt,
+          i -> Integer.toString(i)
+      );
 
-        for (Attribute attr : schema.attributes()) {
-            sb.append(attr.name().toUpperCase())
-                    .append(": ")
-                    .append(formatType(attr.type()));
+      case FLOAT -> new PrimaryIndex<>(
+          new BinarySearchTree<>(),
+          indexName,
+          dbPath,
+          type,
+          Double::parseDouble,
+          d -> Double.toString(d)
+      );
 
-            if (attr.primaryKey()) {
-                sb.append(" PRIMARY KEY");
-            }
+      case TEXT -> new PrimaryIndex<>(
+          new BinarySearchTree<String, RecordPointer>(),
+          indexName,
+          dbPath,
+          type,
+          s -> s,
+          s -> s
+      );
+    };
+  }
 
-            sb.append("\n");
-        }
-
-        return sb.toString().trim();
-    }
-
-    private String formatDescribeAll(List<Schema> schemas) {
-        return schemas.stream()
-                .map(this::formatDescribe)
-                .reduce((a, b) -> a + "\n\n" + b)
-                .orElse("");
-    }
-
-    private String formatType(String type) {
-        return switch (type.toUpperCase()) {
-            case "INTEGER" -> "Integer";
-            case "FLOAT" -> "Float";
-            case "TEXT" -> "Text";
-            default -> type;
-        };
-    }
-
-    private List<Schema> loadAllSchemas() {
-        try (var stream = Files.list(dbPath)) {
-            return stream
-                    .filter(p -> p.getFileName().toString().endsWith(".tbl"))
-                    .map(TableStorageProvider::readTableStorage)
-                    .map(TableStorage::getSchema)
-                    .toList();
-        } catch (Exception e) {
-            throw new RuntimeException("Failed to list tables in " + dbPath, e);
-        }
-    }
-
-
-    private Table loadTable(String name) {
-        Path tablePath = dbPath.resolve(name.toLowerCase() + ".tbl");
-
-        if (!Files.exists(tablePath)) {
-            throw new TableDoesNotExistException(name);
-        }
-
-        TableStorage storage = TableStorageProvider.readTableStorage(tablePath);
-        Schema schema = storage.getSchema();
-
-        PrimaryIndex<?> index = buildIndex(schema);
-
-        Table table = new Table(schema, storage, index);
-        cache.put(schema.schemaName(), table);
-        return table;
-    }
-
-    private PrimaryIndex<?> buildIndex(Schema schema) {
-        Attribute pk = getPrimaryKeyAttribute(schema);
-        if (pk == null) {
-            return null;
-        }
-
-        String indexName = schema.schemaName() + "_pk";
-        DataType type = DataType.valueOf(pk.type());
-
-        return switch (type) {
-            case INTEGER -> new PrimaryIndex<>(
-                    new BinarySearchTree<Integer, RecordPointer>(),
-                    indexName,
-                    dbPath,
-                    type,
-                    Integer::parseInt,
-                    i -> Integer.toString(i)
-            );
-
-            case FLOAT -> new PrimaryIndex<>(
-                    new BinarySearchTree<>(),
-                    indexName,
-                    dbPath,
-                    type,
-                    Double::parseDouble,
-                    d -> Double.toString(d)
-            );
-
-            case TEXT -> new PrimaryIndex<>(
-                    new BinarySearchTree<String, RecordPointer>(),
-                    indexName,
-                    dbPath,
-                    type,
-                    s -> s,
-                    s -> s
-            );
-        };
-    }
-
-    private static Attribute getPrimaryKeyAttribute(Schema schema) {
-        return schema.attributes().stream()
-                .filter(Attribute::primaryKey)
-                .findFirst()
-                .orElse(null);
-    }
+  private static Attribute getPrimaryKeyAttribute(Schema schema) {
+    return schema.attributes().stream()
+        .filter(Attribute::primaryKey)
+        .findFirst()
+        .orElse(null);
+  }
 
 
 }
