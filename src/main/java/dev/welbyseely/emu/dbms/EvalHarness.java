@@ -141,6 +141,18 @@ public class EvalHarness {
         """;
     execSql(sql);
 
+    System.out.println("--------------- Test AGGREGATES --------------");
+    sql = """
+            SELECT count(*) FROM employee;
+            SELECT max(w) FROM employee;
+            SELECT min(y) FROM employee;
+            SELECT average(w) FROM employee;
+            SELECT count(*) FROM employee WHERE w > 90000.0;
+            SELECT average(w) FROM employee WHERE x = 999;
+            SELECT average(y) FROM employee;
+            """;
+    execSql(sql);
+
 //    sql = """
 //        DELETE employee;
 //        SELECT * FROM EMPLOYEE;

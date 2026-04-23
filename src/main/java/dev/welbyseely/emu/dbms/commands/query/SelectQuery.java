@@ -6,7 +6,8 @@ import java.util.List;
 public record SelectQuery(
     List<String> columns,
     String table,
-    Expression where
+    Expression where,
+    Aggregate aggregate
 ) implements PreparedQuery {
 
 }
