@@ -35,6 +35,7 @@ public class DatabaseEngine {
 
   public List<Result> execute(final String statements) {
     return Arrays.stream(statements.split(";"))
+        .filter(q -> !q.isBlank())
         .map(this::executeStatement)
         .toList();
   }
