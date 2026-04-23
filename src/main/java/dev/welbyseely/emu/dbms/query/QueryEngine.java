@@ -1,7 +1,9 @@
 package dev.welbyseely.emu.dbms.query;
 
+import dev.welbyseely.emu.dbms.commands.results.Result;
 import dev.welbyseely.emu.dbms.evaluation.Evaluator;
 import dev.welbyseely.emu.dbms.commands.query.SelectQuery;
+import dev.welbyseely.emu.dbms.storage.table.RowEntry;
 import dev.welbyseely.emu.dbms.table.Row;
 import dev.welbyseely.emu.dbms.table.Table;
 
@@ -25,7 +27,8 @@ public class QueryEngine {
 
     List<Row> results = new ArrayList<>();
 
-    for (Row row : table.scan()) {
+    for (RowEntry rowEntry: table.scan()) {
+      Row row = rowEntry.row();
       if (query.where() == null ||
           evaluator.eval(query.where(), row, table.getSchema())) {
 
@@ -41,7 +44,7 @@ public class QueryEngine {
       return row;
     }
 
-    var projected = new java.util.HashMap<String, Object>();
+    var projected = new java.util.LinkedHashMap<String, Object>();
 
     for (String col : columns) {
       projected.put(col, row.get(col));

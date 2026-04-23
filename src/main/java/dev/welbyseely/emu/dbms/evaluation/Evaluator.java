@@ -62,8 +62,25 @@ public class Evaluator {
 
   @SuppressWarnings({"unchecked", "rawtypes"})
   private boolean compare(Object left, String op, Object right) {
+
+    // coercion
+    if (left instanceof Number && right instanceof Number) {
+      double ld = ((Number) left).doubleValue();
+      double rd = ((Number) right).doubleValue();
+
+      return switch (op) {
+        case "=" -> ld == rd;
+        case "!=" -> ld != rd;
+        case ">" -> ld > rd;
+        case "<" -> ld < rd;
+        case ">=" -> ld >= rd;
+        case "<=" -> ld <= rd;
+        default -> throw new DbmsParseException("Unknown operator: " + op);
+      };
+    }
+
     if (!(left instanceof Comparable l) || !(right instanceof Comparable r)
-        || !r.getClass().isAssignableFrom(l.getClass())) {
+        || !l.getClass().equals(r.getClass())) {
       throw new DbmsParseException("Values not comparable: " + left + ", " + right);
     }
 

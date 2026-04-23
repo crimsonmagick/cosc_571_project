@@ -14,9 +14,8 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.StandardOpenOption;
 import java.util.ArrayList;
-import java.util.HashMap;
+import java.util.LinkedHashMap;
 import java.util.List;
-import java.util.Map;
 
 public class LineTableStorage implements TableStorage {
 
@@ -133,6 +132,51 @@ public class LineTableStorage implements TableStorage {
   @Override
   public boolean isRemoved() {
     return removed;
+  }
+
+  @Override
+  public void delete(RecordPointer pointer) {
+    int target = ((LinePointer) pointer).line();
+
+    List<String> lines = null;
+    try {
+      lines = Files.readAllLines(path);
+      lines.set(target, "#DELETED");
+
+      Files.write(path, lines);
+    } catch (IOException e) {
+      throw new TableStorageException("Unable ", e);
+    }
+  }
+
+  @Override
+  public void update(RecordPointer pointer, Row newRow) {
+    if (removed) {
+      throw new TableStorageException("Table is already removed");
+    }
+
+    int target = ((LinePointer) pointer).line();
+
+    try {
+      List<String> lines = Files.readAllLines(path);
+
+      if (target < 0 || target >= lines.size()) {
+        throw new TableStorageException("Invalid record pointer: " + pointer);
+      }
+
+      String existing = lines.get(target);
+
+      // prevent updating deleted or invalid rows
+      if (existing == null || existing.isBlank() || existing.startsWith("#")) {
+        throw new TableStorageException("Cannot update deleted or invalid row at: " + pointer);
+      }
+
+      lines.set(target, serialize(newRow));
+
+      Files.write(path, lines);
+    } catch (IOException e) {
+      throw new TableStorageException("Unable to update row at pointer: " + pointer, e);
+    }
   }
 
   private record ReadResult(int dataStartLine, Schema schema) {
@@ -290,7 +334,7 @@ public class LineTableStorage implements TableStorage {
 
   private Row deserialize(String line) {
     final String[] parts = line.split("\\|", -1);
-    final Map<String, Object> values = new HashMap<>();
+    final LinkedHashMap<String, Object> values = new LinkedHashMap<>();
 
     final List<Attribute> attrs = schema.attributes();
 
@@ -303,7 +347,6 @@ public class LineTableStorage implements TableStorage {
 
     return new Row(values);
   }
-
 
 
 }

@@ -16,4 +16,8 @@ public interface TableStorage {
   void remove();
 
   boolean isRemoved();
+
+  void delete(RecordPointer pointer);
+
+  void update(RecordPointer pointer, Row newRow);
 }

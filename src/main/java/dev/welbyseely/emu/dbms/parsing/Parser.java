@@ -1,11 +1,20 @@
 package dev.welbyseely.emu.dbms.parsing;
 
+import static dev.welbyseely.emu.dbms.parsing.tokens.TokenType.COMMA;
+import static dev.welbyseely.emu.dbms.parsing.tokens.TokenType.EQ;
+import static dev.welbyseely.emu.dbms.parsing.tokens.TokenType.IDENTIFIER;
+import static dev.welbyseely.emu.dbms.parsing.tokens.TokenType.SET;
+import static dev.welbyseely.emu.dbms.parsing.tokens.TokenType.UPDATE;
+import static dev.welbyseely.emu.dbms.parsing.tokens.TokenType.WHERE;
+
 import dev.welbyseely.emu.dbms.commands.PreparedCommand;
 import dev.welbyseely.emu.dbms.commands.engine.CreateDatabaseCommand;
 import dev.welbyseely.emu.dbms.commands.engine.ExitCommand;
 import dev.welbyseely.emu.dbms.commands.engine.UseCommand;
 import dev.welbyseely.emu.dbms.commands.query.CreateTableQuery;
+import dev.welbyseely.emu.dbms.commands.query.DescribeQuery;
 import dev.welbyseely.emu.dbms.commands.query.InsertQuery;
+import dev.welbyseely.emu.dbms.commands.query.UpdateQuery;
 import dev.welbyseely.emu.dbms.exception.DbmsParseException;
 import dev.welbyseely.emu.dbms.query.Comparison;
 import dev.welbyseely.emu.dbms.query.Expression;
@@ -16,7 +25,9 @@ import dev.welbyseely.emu.dbms.parsing.tokens.TokenType;
 import dev.welbyseely.emu.dbms.parsing.tokens.Tokenizer;
 import dev.welbyseely.emu.dbms.schema.Attribute;
 import java.util.ArrayList;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
 
 public class Parser {
 
@@ -35,18 +46,65 @@ public class Parser {
     return switch (firstToken.type()) {
       case SELECT -> parseSelect();
       case INSERT -> parseInsert();
+      case UPDATE -> parseUpdate();
       case EXIT -> new ExitCommand();
       case CREATE -> parseCreate();
       case USE -> parseUse();
+      case DESCRIBE -> parseDescribe();
       default ->
           throw new UnsupportedOperationException("Command not supported: " + firstToken.text());
     };
   }
 
+  private UpdateQuery parseUpdate() {
+    expect(TokenType.UPDATE);
+
+    final String tableName = expect(TokenType.IDENTIFIER).text();
+
+    expect(TokenType.SET);
+
+    final Map<String, String> updates = new LinkedHashMap<>();
+
+    do {
+      final String attrName = expect(TokenType.IDENTIFIER).text();
+      expect(TokenType.EQ);
+      final String value = parseConstant();
+      updates.put(attrName, value);
+    } while (match(TokenType.COMMA));
+
+    Expression where = null;
+    if (match(TokenType.WHERE)) {
+      where = parseExpression();
+    }
+
+    return new UpdateQuery(tableName, updates, where);
+  }
+
+  private String parseConstant() {
+    final Token token = advance();
+
+    return switch (token.type()) {
+      case STRING, NUMBER -> token.text();
+      default -> throw new DbmsParseException(
+          "Expected STRING or NUMBER but got " + token);
+    };
+  }
+
+  private DescribeQuery parseDescribe() {
+    expect(TokenType.DESCRIBE);
+
+    if (match(TokenType.ALL)) {
+      return new DescribeQuery(true, null);
+    }
+
+    String tableName = expect(IDENTIFIER).text();
+    return new DescribeQuery(false, tableName);
+  }
+
   private InsertQuery parseInsert() {
     expect(TokenType.INSERT);
 
-    final String tableName = expect(TokenType.IDENTIFIER).text();
+    final String tableName = expect(IDENTIFIER).text();
 
     expect(TokenType.VALUES);
     expect(TokenType.LPAREN);
@@ -55,7 +113,7 @@ public class Parser {
 
     do {
       values.add(parseInsertValue());
-    } while (match(TokenType.COMMA));
+    } while (match(COMMA));
 
     expect(TokenType.RPAREN);
 
@@ -75,7 +133,7 @@ public class Parser {
     expect(TokenType.CREATE);
 
     if (match(TokenType.DATABASE)) {
-      String databaseName = expect(TokenType.IDENTIFIER).text();
+      String databaseName = expect(IDENTIFIER).text();
       return new CreateDatabaseCommand(databaseName);
     }
 
@@ -87,7 +145,7 @@ public class Parser {
   }
 
   private CreateTableQuery parseCreateTable() {
-    String tableName = expect(TokenType.IDENTIFIER).text();
+    String tableName = expect(IDENTIFIER).text();
 
     expect(TokenType.LPAREN);
 
@@ -95,7 +153,7 @@ public class Parser {
 
     do {
       attributes.add(parseAttribute());
-    } while (match(TokenType.COMMA));
+    } while (match(COMMA));
 
     expect(TokenType.RPAREN);
 
@@ -103,7 +161,7 @@ public class Parser {
   }
 
   private Attribute parseAttribute() {
-    String name = expect(TokenType.IDENTIFIER).text();
+    String name = expect(IDENTIFIER).text();
 
     Token typeToken = advance();
 
@@ -133,7 +191,7 @@ public class Parser {
 
   private String parseDatabaseName() {
     Token dbIdentifier = advance();
-    if (dbIdentifier.type() == TokenType.IDENTIFIER) {
+    if (dbIdentifier.type() == IDENTIFIER) {
       return dbIdentifier.text();
     }
     throw new DbmsParseException("Expected identifier");
@@ -145,10 +203,10 @@ public class Parser {
     List<String> columns = parseColumns();
 
     expect(TokenType.FROM);
-    String table = expect(TokenType.IDENTIFIER).text();
+    String table = expect(IDENTIFIER).text();
 
     Expression where = null;
-    if (match(TokenType.WHERE)) {
+    if (match(WHERE)) {
       where = parseExpression();
     }
 
@@ -195,8 +253,8 @@ public class Parser {
     }
 
     do {
-      cols.add(expect(TokenType.IDENTIFIER).text());
-    } while (match(TokenType.COMMA));
+      cols.add(expect(IDENTIFIER).text());
+    } while (match(COMMA));
 
     return cols;
   }
@@ -224,7 +282,7 @@ public class Parser {
   }
 
   private Expression parseComparison() {
-    String left = expect(TokenType.IDENTIFIER).text();
+    String left = expect(IDENTIFIER).text();
 
     Token op = advance(); // =, !=, <, etc.
 
@@ -232,7 +290,7 @@ public class Parser {
     if (peek().type() == TokenType.STRING || peek().type() == TokenType.NUMBER) {
       right = advance().text();
     } else {
-      right = expect(TokenType.IDENTIFIER).text();
+      right = expect(IDENTIFIER).text();
     }
 
     return new Comparison(left, op.text(), right);

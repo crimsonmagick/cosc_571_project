@@ -94,4 +94,8 @@ public class PrimaryIndex<T extends Comparable<? super T>> {
       throw new IndexStorageException("Index has already been removed");
     }
   }
+
+  public void deleteUntyped(Comparable<?> key) {
+    tree.delete((T) key);
+  }
 }

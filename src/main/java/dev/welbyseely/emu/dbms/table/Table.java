@@ -4,6 +4,7 @@ import dev.welbyseely.emu.dbms.index.PrimaryIndex;
 import dev.welbyseely.emu.dbms.schema.Attribute;
 import dev.welbyseely.emu.dbms.schema.Schema;
 import dev.welbyseely.emu.dbms.storage.table.RecordPointer;
+import dev.welbyseely.emu.dbms.storage.table.RowEntry;
 import dev.welbyseely.emu.dbms.storage.table.TableStorage;
 import java.util.ArrayList;
 import java.util.List;
@@ -25,13 +26,13 @@ public class Table {
     this.index = primaryIndex;
   }
 
-  public Iterable<Row> scan() {
-    final List<Row> rows = new ArrayList<>();
+  public Iterable<RowEntry> scan() {
+    List<RowEntry> rows = new ArrayList<>();
 
     for (RecordPointer pointer : scanPointers()) {
-      final Row row = tableStorage.read(pointer);
+      Row row = tableStorage.read(pointer);
       if (row != null) {
-        rows.add(row);
+        rows.add(new RowEntry(pointer, row));
       }
     }
 
@@ -97,5 +98,41 @@ public class Table {
 
   public Schema getSchema() {
     return schema;
+  }
+
+  public void delete(RecordPointer pointer) {
+    Row row = tableStorage.read(pointer);
+    if (row == null) {
+      return;
+    }
+
+    if (index != null) {
+      Comparable<?> key = extractPrimaryKey(row);
+      index.deleteUntyped(key);
+    }
+
+    tableStorage.delete(pointer);
+  }
+
+  public void update(RecordPointer pointer, Row newRow) {
+
+    if (index != null) {
+      Row oldRow = tableStorage.read(pointer);
+
+      Comparable<?> oldKey = extractPrimaryKey(oldRow);
+      Comparable<?> newKey = extractPrimaryKey(newRow);
+
+      if (!oldKey.equals(newKey)) {
+
+        if (index.searchUntyped(newKey).isPresent()) {
+          throw new IllegalStateException("Duplicate primary key: " + newKey);
+        }
+
+        index.deleteUntyped(oldKey);
+        index.insertUntyped(newKey, pointer);
+      }
+    }
+
+    tableStorage.update(pointer, newRow);
   }
 }

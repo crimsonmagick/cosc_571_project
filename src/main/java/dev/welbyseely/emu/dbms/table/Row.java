@@ -1,11 +1,11 @@
 package dev.welbyseely.emu.dbms.table;
 
-import java.util.Map;
+import java.util.LinkedHashMap;
 
-public record Row(Map<String, Object> values) {
+public record Row(LinkedHashMap<String, Object> values) {
 
   public Row {
-    values = Map.copyOf(values);
+    values = new LinkedHashMap<>(values);
   }
 
   public Object get(String name) {
