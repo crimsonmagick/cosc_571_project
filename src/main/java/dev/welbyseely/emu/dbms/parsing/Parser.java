@@ -10,6 +10,7 @@ import static dev.welbyseely.emu.dbms.parsing.tokens.TokenType.WHERE;
 import dev.welbyseely.emu.dbms.commands.PreparedCommand;
 import dev.welbyseely.emu.dbms.commands.engine.CreateDatabaseCommand;
 import dev.welbyseely.emu.dbms.commands.engine.ExitCommand;
+import dev.welbyseely.emu.dbms.commands.engine.InputCommand;
 import dev.welbyseely.emu.dbms.commands.engine.UseCommand;
 import dev.welbyseely.emu.dbms.commands.query.*;
 import dev.welbyseely.emu.dbms.exception.DbmsParseException;
@@ -54,7 +55,30 @@ public class Parser {
             case DELETE -> parseDelete();
             case RENAME -> parseRename();
             case LET -> parseLet();
+            case INPUT -> parseInput();
             default -> throw new UnsupportedOperationException("Command not supported: " + firstToken.text());
+        };
+    }
+
+    private InputCommand parseInput() {
+        expect(TokenType.INPUT);
+
+        String input = parseFileName();
+
+        String output = null;
+        if (match(TokenType.OUTPUT)) {
+            output = parseFileName();
+        }
+
+        return new InputCommand(input, output);
+    }
+
+    private String parseFileName() {
+        Token token = advance();
+
+        return switch (token.type()) {
+            case IDENTIFIER, STRING -> token.text();
+            default -> throw new DbmsParseException("Expected file name but got " + token);
         };
     }
 

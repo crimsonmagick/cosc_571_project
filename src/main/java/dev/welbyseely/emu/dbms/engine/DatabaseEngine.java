@@ -3,12 +3,10 @@ package dev.welbyseely.emu.dbms.engine;
 import dev.welbyseely.emu.dbms.commands.PreparedCommand;
 import dev.welbyseely.emu.dbms.commands.engine.CreateDatabaseCommand;
 import dev.welbyseely.emu.dbms.commands.engine.ExitCommand;
+import dev.welbyseely.emu.dbms.commands.engine.InputCommand;
 import dev.welbyseely.emu.dbms.commands.engine.UseCommand;
 import dev.welbyseely.emu.dbms.commands.query.PreparedQuery;
-import dev.welbyseely.emu.dbms.commands.results.ErrorResult;
-import dev.welbyseely.emu.dbms.commands.results.ExitResult;
-import dev.welbyseely.emu.dbms.commands.results.Result;
-import dev.welbyseely.emu.dbms.commands.results.VoidResult;
+import dev.welbyseely.emu.dbms.commands.results.*;
 import dev.welbyseely.emu.dbms.exception.NoActiveDatabaseException;
 import dev.welbyseely.emu.dbms.parsing.Parser;
 import dev.welbyseely.emu.dbms.parsing.tokens.Token;
@@ -54,6 +52,7 @@ public class DatabaseEngine {
 
       Parser parser = new Parser(tokens);
       PreparedCommand preparedCommand = parser.parse();
+
       if (preparedCommand instanceof PreparedQuery pq) {
         if (activeDatabase == null) {
           throw new NoActiveDatabaseException("No active database selected!");
@@ -71,6 +70,7 @@ public class DatabaseEngine {
       case ExitCommand exitCommand -> new ExitResult();
       case CreateDatabaseCommand(String databaseName) -> createDatabase(databaseName);
       case UseCommand(String databaseName) -> useDatabase(databaseName);
+      case InputCommand(String input, String output) -> new InputResult(input, output);
       case null, default ->
           throw new UnsupportedOperationException("Command not supported: " + preparedCommand);
     };
