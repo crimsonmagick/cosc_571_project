@@ -5,6 +5,9 @@ import static dev.welbyseely.emu.dbms.constants.DirUtil.resolveBaseDir;
 
 import dev.welbyseely.emu.dbms.exception.TableDoesNotExistException;
 import dev.welbyseely.emu.dbms.index.PrimaryIndex;
+import dev.welbyseely.emu.dbms.query.PreparedQuery;
+import dev.welbyseely.emu.dbms.query.QueryEngine;
+import dev.welbyseely.emu.dbms.query.SelectQuery;
 import dev.welbyseely.emu.dbms.schema.Attribute;
 import dev.welbyseely.emu.dbms.schema.DataType;
 import dev.welbyseely.emu.dbms.schema.Schema;
@@ -15,6 +18,7 @@ import dev.welbyseely.emu.dbms.tree.BinarySearchTree;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 
 public class DatabaseImpl implements Database {
@@ -22,10 +26,12 @@ public class DatabaseImpl implements Database {
   private final String dbName;
   private final Path dbPath;
   private final Map<String, Table> cache = new HashMap<>();
+  private final QueryEngine queryEngine;
 
   public DatabaseImpl(final String dbName) {
     this.dbName = dbName;
     this.dbPath = resolveBaseDir().resolve(dbName);
+    this.queryEngine = new QueryEngine(this);
   }
 
   public Table createTable(Schema schema) {
@@ -43,6 +49,15 @@ public class DatabaseImpl implements Database {
   @Override
   public String getName() {
     return dbName;
+  }
+
+  @Override
+  public List<Row> executeQuery(final PreparedQuery preparedQuery) {
+    if (preparedQuery instanceof SelectQuery q) {
+      return queryEngine.executeSelect(q);
+    }
+    throw new UnsupportedOperationException(
+        "Unsupported preparedQuery type, class=" + preparedQuery.getClass());
   }
 
   private Table loadTable(String name) {

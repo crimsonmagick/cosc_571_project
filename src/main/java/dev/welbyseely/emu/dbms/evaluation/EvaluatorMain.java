@@ -80,6 +80,7 @@ public class EvaluatorMain {
 
     String sql = "SELECT name, gpa FROM STuDEnT WHERE name = Alice";
 
+    Dbms.get().getEngine().useDatabase("tempdb");
     Dbms.get()
         .execute(sql)
         .forEach(System.out::println);

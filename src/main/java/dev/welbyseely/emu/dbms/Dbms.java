@@ -1,9 +1,7 @@
 package dev.welbyseely.emu.dbms;
 
 import dev.welbyseely.emu.dbms.engine.DatabaseEngine;
-import dev.welbyseely.emu.dbms.table.DatabaseImpl;
 import dev.welbyseely.emu.dbms.table.Row;
-import dev.welbyseely.emu.dbms.table.Database;
 import java.util.List;
 
 public final class Dbms {
@@ -13,8 +11,7 @@ public final class Dbms {
   private final DatabaseEngine engine;
 
   private Dbms() {
-    Database database = new DatabaseImpl("tempdb"); // TODO need to support multiple!!
-    this.engine = new DatabaseEngine(database);
+    this.engine = new DatabaseEngine();
   }
 
   public static Dbms get() {
@@ -23,5 +20,9 @@ public final class Dbms {
 
   public List<Row> execute(String sql) {
     return engine.execute(sql);
+  }
+
+  public DatabaseEngine getEngine() {
+    return this.engine;
   }
 }
