@@ -100,8 +100,18 @@ public class EvalHarness {
         
         UPDATE employee SET id = 10;
         SELECT * FROM EMPLOYEE;
+        
+        DELETE employee WHERE id = 10;
+        DELETE employee WHERE id = 1;
+        SELECT * FROM EMPLOYEE;
         """;
 
+    execSql(sql);
+
+    sql = """ 
+        DELETE employee;
+        SELECT * FROM EMPLOYEE;
+        """;
     execSql(sql);
 //
 //    execSql("UPDATE employee SET department = \"Platform\" WHERE name = \"Alice\";\n");

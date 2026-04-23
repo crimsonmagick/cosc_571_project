@@ -12,6 +12,7 @@ import dev.welbyseely.emu.dbms.commands.engine.CreateDatabaseCommand;
 import dev.welbyseely.emu.dbms.commands.engine.ExitCommand;
 import dev.welbyseely.emu.dbms.commands.engine.UseCommand;
 import dev.welbyseely.emu.dbms.commands.query.CreateTableQuery;
+import dev.welbyseely.emu.dbms.commands.query.DeleteQuery;
 import dev.welbyseely.emu.dbms.commands.query.DescribeQuery;
 import dev.welbyseely.emu.dbms.commands.query.InsertQuery;
 import dev.welbyseely.emu.dbms.commands.query.UpdateQuery;
@@ -51,9 +52,24 @@ public class Parser {
       case CREATE -> parseCreate();
       case USE -> parseUse();
       case DESCRIBE -> parseDescribe();
+      case DELETE -> parseDelete();
       default ->
           throw new UnsupportedOperationException("Command not supported: " + firstToken.text());
     };
+  }
+
+  private DeleteQuery parseDelete() {
+    expect(TokenType.DELETE);
+
+    final String tableName = expect(TokenType.IDENTIFIER).text();
+
+    Expression where = null;
+    if (match(TokenType.WHERE)) {
+      where = parseExpression();
+    }
+
+    return new DeleteQuery(tableName, where);
+
   }
 
   private UpdateQuery parseUpdate() {

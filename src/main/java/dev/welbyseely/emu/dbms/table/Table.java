@@ -135,4 +135,12 @@ public class Table {
 
     tableStorage.update(pointer, newRow);
   }
+
+  public void drop() {
+    if (index != null) {
+      index.remove();
+    }
+
+    tableStorage.remove();
+  }
 }

@@ -12,7 +12,7 @@ import java.util.List;
 public class TableStorageProvider {
 
   public static TableStorage createTableStorage(final Schema schema, final Path dbPath) {
-    final Path path = dbPath.resolve(schema.schemaName() + TABLE_EXTENSION);
+    final Path path = dbPath.resolve(schema.schemaName().toLowerCase() + TABLE_EXTENSION);
 
     try {
       final Path parent = path.getParent();

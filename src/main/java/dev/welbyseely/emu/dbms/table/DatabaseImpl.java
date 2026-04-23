@@ -5,6 +5,7 @@ import static dev.welbyseely.emu.dbms.constants.DirUtil.resolveBaseDir;
 import static dev.welbyseely.emu.dbms.util.DatatypeParser.parse;
 
 import dev.welbyseely.emu.dbms.commands.query.CreateTableQuery;
+import dev.welbyseely.emu.dbms.commands.query.DeleteQuery;
 import dev.welbyseely.emu.dbms.commands.query.DescribeQuery;
 import dev.welbyseely.emu.dbms.commands.query.InsertQuery;
 import dev.welbyseely.emu.dbms.commands.query.UpdateQuery;
@@ -59,7 +60,7 @@ public class DatabaseImpl implements Database {
   }
 
   public Table getTable(String name) {
-    return cache.computeIfAbsent(name, this::loadTable);
+    return cache.computeIfAbsent(name.toLowerCase(), this::loadTable);
   }
 
   @Override
@@ -75,7 +76,7 @@ public class DatabaseImpl implements Database {
     }
     if (preparedQuery instanceof CreateTableQuery(String table, List<Attribute> attributes)) {
       final Schema schema = new Schema(table, attributes);
-      cache.put(schema.schemaName(), createTable(schema));
+      cache.put(schema.schemaName().toLowerCase(), createTable(schema));
       return new VoidResult();
     }
     if (preparedQuery instanceof InsertQuery(String tableName, List<String> values)) {
@@ -191,6 +192,32 @@ public class DatabaseImpl implements Database {
         Row newRow = newRows.get(i);
 
         table.update(entry.pointer(), newRow);
+      }
+
+      return new VoidResult();
+    }
+    if (preparedQuery instanceof DeleteQuery dq) {
+
+      Table table = getTable(dq.table());
+      Schema schema = table.getSchema();
+      Evaluator evaluator = new Evaluator();
+
+      if (dq.where() == null) {
+        table.drop();
+        cache.remove(dq.table().toLowerCase());
+        return new VoidResult();
+      }
+
+      List<RecordPointer> toDelete = new ArrayList<>();
+
+      for (RowEntry entry : table.scan()) {
+        if (evaluator.eval(dq.where(), entry.row(), schema)) {
+          toDelete.add(entry.pointer());
+        }
+      }
+
+      for (RecordPointer ptr : toDelete) {
+        table.delete(ptr);
       }
 
       return new VoidResult();
