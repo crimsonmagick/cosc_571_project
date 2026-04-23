@@ -2,8 +2,10 @@ package dev.welbyseely.emu.dbms.table;
 
 
 import static dev.welbyseely.emu.dbms.constants.DirUtil.resolveBaseDir;
+import static dev.welbyseely.emu.dbms.util.DatatypeParser.parse;
 
 import dev.welbyseely.emu.dbms.commands.query.CreateTableQuery;
+import dev.welbyseely.emu.dbms.commands.query.InsertQuery;
 import dev.welbyseely.emu.dbms.commands.results.Result;
 import dev.welbyseely.emu.dbms.commands.results.TupleResult;
 import dev.welbyseely.emu.dbms.commands.results.VoidResult;
@@ -61,14 +63,43 @@ public class DatabaseImpl implements Database {
       var rows = queryEngine.executeSelect(q);
       return new TupleResult(rows);
     }
-    if (preparedQuery instanceof CreateTableQuery ctq) {
-      final Schema schema = new Schema(ctq.table(), ctq.attributes());
-      createTable(schema);
+    if (preparedQuery instanceof CreateTableQuery(String table, List<Attribute> attributes)) {
+      final Schema schema = new Schema(table, attributes);
+      cache.put(schema.schemaName(), createTable(schema));
+      return new VoidResult();
+    }
+    if (preparedQuery instanceof InsertQuery(String tableName, List<String> values)) {
+      final Table table = getTable(tableName);
+      final Schema schema = table.getSchema();
+
+      final List<Attribute> attrs = schema.attributes();
+
+      if (values.size() != attrs.size()) {
+        throw new RuntimeException(
+            "Value count does not match schema. Expected " + attrs.size() +
+                " but got " + values.size());
+      }
+
+      final Map<String, Object> rowValues = new HashMap<>();
+
+      for (int i = 0; i < attrs.size(); i++) {
+        Attribute attr = attrs.get(i);
+        String raw = values.get(i);
+
+        DataType type = DataType.valueOf(attr.type());
+        Object parsed = parse(raw, type);
+
+        rowValues.put(attr.name(), parsed);
+      }
+
+      Row row = new Row(rowValues);
+      table.insert(row);
       return new VoidResult();
     }
     throw new UnsupportedOperationException(
         "Unsupported preparedQuery type, class=" + preparedQuery.getClass());
   }
+
 
   private Table loadTable(String name) {
     Path tablePath = dbPath.resolve(name.toLowerCase() + ".tbl");
@@ -82,7 +113,9 @@ public class DatabaseImpl implements Database {
 
     PrimaryIndex<?> index = buildIndex(schema);
 
-    return new Table(schema, storage, index);
+    Table table = new Table(schema, storage, index);
+    cache.put(schema.schemaName(), table);
+    return table;
   }
 
   private PrimaryIndex<?> buildIndex(Schema schema) {

@@ -26,6 +26,18 @@ record Rule(Pattern pattern, TokenType type) {
       new Rule(Pattern.compile("^\\)"), TokenType.RPAREN),
       new Rule(Pattern.compile("^KEY\\b", Pattern.CASE_INSENSITIVE), TokenType.KEY),
       new Rule(Pattern.compile("^TEXT\\b", Pattern.CASE_INSENSITIVE), TokenType.TEXT),
+      new Rule(Pattern.compile("^DESCRIBE\\b", Pattern.CASE_INSENSITIVE), TokenType.DESCRIBE),
+      new Rule(Pattern.compile("^ALL\\b", Pattern.CASE_INSENSITIVE), TokenType.ALL),
+      new Rule(Pattern.compile("^RENAME\\b", Pattern.CASE_INSENSITIVE), TokenType.RENAME),
+      new Rule(Pattern.compile("^INSERT\\b", Pattern.CASE_INSENSITIVE), TokenType.INSERT),
+      new Rule(Pattern.compile("^VALUES\\b", Pattern.CASE_INSENSITIVE), TokenType.VALUES),
+      new Rule(Pattern.compile("^UPDATE\\b", Pattern.CASE_INSENSITIVE), TokenType.UPDATE),
+      new Rule(Pattern.compile("^SET\\b", Pattern.CASE_INSENSITIVE), TokenType.SET),
+      new Rule(Pattern.compile("^DELETE\\b", Pattern.CASE_INSENSITIVE), TokenType.DELETE),
+      new Rule(Pattern.compile("^LET\\b", Pattern.CASE_INSENSITIVE), TokenType.LET),
+
+      new Rule(Pattern.compile("^INPUT\\b", Pattern.CASE_INSENSITIVE), TokenType.INPUT),
+      new Rule(Pattern.compile("^OUTPUT\\b", Pattern.CASE_INSENSITIVE), TokenType.OUTPUT),
 
       new Rule(Pattern.compile("^\\*"), TokenType.ASTERISK),
       new Rule(Pattern.compile("^,"), TokenType.COMMA),

@@ -5,6 +5,7 @@ import dev.welbyseely.emu.dbms.commands.engine.CreateDatabaseCommand;
 import dev.welbyseely.emu.dbms.commands.engine.ExitCommand;
 import dev.welbyseely.emu.dbms.commands.engine.UseCommand;
 import dev.welbyseely.emu.dbms.commands.query.CreateTableQuery;
+import dev.welbyseely.emu.dbms.commands.query.InsertQuery;
 import dev.welbyseely.emu.dbms.exception.DbmsParseException;
 import dev.welbyseely.emu.dbms.query.Comparison;
 import dev.welbyseely.emu.dbms.query.Expression;
@@ -33,11 +34,40 @@ public class Parser {
     final Token firstToken = tokens.getFirst();
     return switch (firstToken.type()) {
       case SELECT -> parseSelect();
+      case INSERT -> parseInsert();
       case EXIT -> new ExitCommand();
       case CREATE -> parseCreate();
       case USE -> parseUse();
       default ->
           throw new UnsupportedOperationException("Command not supported: " + firstToken.text());
+    };
+  }
+
+  private InsertQuery parseInsert() {
+    expect(TokenType.INSERT);
+
+    final String tableName = expect(TokenType.IDENTIFIER).text();
+
+    expect(TokenType.VALUES);
+    expect(TokenType.LPAREN);
+
+    final List<String> values = new ArrayList<>();
+
+    do {
+      values.add(parseInsertValue());
+    } while (match(TokenType.COMMA));
+
+    expect(TokenType.RPAREN);
+
+    return new InsertQuery(tableName, values);
+  }
+
+  private String parseInsertValue() {
+    final Token token = advance();
+
+    return switch (token.type()) {
+      case STRING, NUMBER -> token.text();
+      default -> throw new DbmsParseException("Expected STRING or NUMBER but got " + token);
     };
   }
 
