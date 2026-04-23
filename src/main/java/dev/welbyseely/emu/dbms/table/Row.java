@@ -1,8 +1,9 @@
 package dev.welbyseely.emu.dbms.table;
 
 import java.util.LinkedHashMap;
+import java.util.Map;
 
-public record Row(LinkedHashMap<String, Object> values) {
+public record Row(Map<String, Object> values) {
 
   public Row {
     values = new LinkedHashMap<>(values);

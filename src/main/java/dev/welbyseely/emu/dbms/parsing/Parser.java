@@ -250,7 +250,11 @@ public class Parser {
         ParsedSelectProjection projection = parseSelectProjection();
 
         expect(TokenType.FROM);
-        String table = expect(TokenType.IDENTIFIER).text();
+
+        List<String> tables = new ArrayList<>();
+        do {
+            tables.add(expect(TokenType.IDENTIFIER).text());
+        } while (match(TokenType.COMMA));
 
         Expression where = null;
         if (match(TokenType.WHERE)) {
@@ -259,7 +263,7 @@ public class Parser {
 
         return new SelectQuery(
                 projection.columns(),
-                table,
+                tables,
                 where,
                 projection.aggregate()
         );

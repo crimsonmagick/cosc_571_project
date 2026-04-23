@@ -4,6 +4,7 @@ import dev.welbyseely.emu.dbms.commands.query.Aggregate;
 import dev.welbyseely.emu.dbms.commands.query.SelectQuery;
 import dev.welbyseely.emu.dbms.evaluation.Evaluator;
 import dev.welbyseely.emu.dbms.exception.InvalidProjectionException;
+import dev.welbyseely.emu.dbms.schema.Attribute;
 import dev.welbyseely.emu.dbms.schema.DataType;
 import dev.welbyseely.emu.dbms.schema.Schema;
 import dev.welbyseely.emu.dbms.storage.table.RowEntry;
@@ -14,6 +15,7 @@ import dev.welbyseely.emu.dbms.table.Table;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
 
 public class QueryEngine {
 
@@ -25,32 +27,15 @@ public class QueryEngine {
 
     private final Evaluator evaluator = new Evaluator();
 
-    private List<Row> executeAggregateSelect(SelectQuery q) {
-        Table table = database.getTable(q.table());
-        Schema schema = table.getSchema();
-
-        Evaluator evaluator = new Evaluator();
+    private Row executeAggregate(List<Row> rows, SelectQuery q) {
         Aggregate agg = q.aggregate();
 
-        if (!agg.column().equals("*") && !schema.hasAttribute(agg.column())) {
-            throw new RuntimeException("Unknown column: " + agg.column());
-        }
-
-        List<Row> matches = new ArrayList<>();
-        for (RowEntry entry : table.scan()) {
-            if (evaluator.eval(q.where(), entry.row(), schema)) {
-                matches.add(entry.row());
-            }
-        }
-
-        Row resultRow = switch (agg.type()) {
-            case COUNT -> computeCount(matches);
-            case MIN -> computeMin(matches, agg.column(), schema);
-            case MAX -> computeMax(matches, agg.column(), schema);
-            case AVERAGE -> computeAverage(matches, agg.column(), schema);
+        return switch (agg.type()) {
+            case COUNT -> computeCount(rows);
+            case MIN -> computeMin(rows, agg.column());
+            case MAX -> computeMax(rows, agg.column());
+            case AVERAGE -> computeAverage(rows, agg.column(), rows);
         };
-
-        return List.of(resultRow);
     }
 
     private Row computeCount(List<Row> rows) {
@@ -60,7 +45,7 @@ public class QueryEngine {
     }
 
     @SuppressWarnings({"rawtypes", "unchecked"})
-    private Row computeMin(List<Row> rows, String column, Schema schema) {
+    private Row computeMin(List<Row> rows, String column) {
         Object min = null;
 
         for (Row row : rows) {
@@ -72,13 +57,11 @@ public class QueryEngine {
             }
         }
 
-        LinkedHashMap<String, Object> values = new LinkedHashMap<>();
-        values.put("min", min);
-        return new Row(values);
+        return new Row(Map.of("min", min));
     }
 
     @SuppressWarnings({"rawtypes", "unchecked"})
-    private Row computeMax(List<Row> rows, String column, Schema schema) {
+    private Row computeMax(List<Row> rows, String column) {
         Object max = null;
 
         for (Row row : rows) {
@@ -92,15 +75,65 @@ public class QueryEngine {
 
         LinkedHashMap<String, Object> values = new LinkedHashMap<>();
         values.put("max", max);
+
+        return new Row(values);
+    }
+    private List<Row> buildRows(SelectQuery q) {
+        List<Table> tables = q.tables().stream().map(database::getTable).toList();
+
+        List<Row> rows = buildCartesianProduct(tables);
+
+        Schema schema = combineSchemas(tables);
+
+        List<Row> filtered = new ArrayList<>();
+
+        for (Row row : rows) {
+            if (q.where() == null || evaluator.eval(q.where(), row, schema)) {
+                filtered.add(row);
+            }
+        }
+
+        return filtered;
+    }
+
+    private List<Row> buildCartesianProduct(List<Table> tables) {
+        List<Row> result = List.of(new Row(new LinkedHashMap<>()));
+
+        for (Table table : tables) {
+            List<Row> next = new ArrayList<>();
+
+            for (Row base : result) {
+                for (RowEntry entry : table.scan()) {
+                    next.add(combine(base, entry.row()));
+                }
+            }
+
+            result = next;
+        }
+
+        return result;
+    }
+
+    private Row combine(Row left, Row right) {
+        LinkedHashMap<String, Object> values = new LinkedHashMap<>();
+
+        values.putAll(left.values());
+        values.putAll(right.values());
+
         return new Row(values);
     }
 
-    private Row computeAverage(List<Row> rows, String column, Schema schema) {
-        DataType type = DataType.valueOf(schema.getAttribute(column).type());
-        if (type != DataType.INTEGER && type != DataType.FLOAT) {
-            throw new RuntimeException("AVERAGE requires numeric column: " + column);
+    private Schema combineSchemas(List<Table> tables) {
+        List<Attribute> attrs = new ArrayList<>();
+
+        for (Table t : tables) {
+            attrs.addAll(t.getSchema().attributes());
         }
 
+        return new Schema("joined", attrs);
+    }
+
+    private Row computeAverage(List<Row> rows, String column, List<Row> allRows) {
         double sum = 0.0;
         int count = 0;
 
@@ -109,40 +142,48 @@ public class QueryEngine {
             if (value instanceof Number n) {
                 sum += n.doubleValue();
                 count++;
+            } else if (value != null) {
+                throw new RuntimeException("AVERAGE requires numeric column: " + column);
             }
         }
 
         Double avg = count == 0 ? null : sum / count;
 
-        LinkedHashMap<String, Object> values = new LinkedHashMap<>();
-        values.put("average", avg);
-        return new Row(values);
+        return new Row(Map.of("average", avg));
     }
 
     public List<Row> executeSelect(SelectQuery query) {
-        if (query.aggregate() != null) {
-            return executeAggregateSelect(query);
-        }
-        Table table = database.getTable(query.table());
+        List<Row> rows = buildRows(query);
 
-        for (String col : query.columns()) {
-            if (!col.equals("*") && !table.getSchema().hasAttribute(col)) {
-                throw new InvalidProjectionException("Unknown column: " + col);
-            }
+        if (query.aggregate() != null) {
+            return List.of(executeAggregate(rows, query));
         }
+
+        validateProjection(query, rows);
 
         List<Row> results = new ArrayList<>();
 
-        for (RowEntry rowEntry : table.scan()) {
-            Row row = rowEntry.row();
-            if (query.where() == null ||
-                    evaluator.eval(query.where(), row, table.getSchema())) {
-
-                results.add(project(row, query.columns()));
-            }
+        for (Row row : rows) {
+            results.add(project(row, query.columns()));
         }
 
         return results;
+    }
+
+    private void validateProjection(SelectQuery query, List<Row> rows) {
+        if (query.columns().size() == 1 && query.columns().get(0).equals("*")) {
+            return;
+        }
+
+        if (rows.isEmpty()) return;
+
+        Row sample = rows.get(0);
+
+        for (String col : query.columns()) {
+            if (!sample.values().containsKey(col)) {
+                throw new InvalidProjectionException("Unknown column: " + col);
+            }
+        }
     }
 
 
