@@ -138,7 +138,7 @@ public class Table {
 
   public void drop() {
     if (index != null) {
-      index.remove();
+      index.removeIndex();
     }
 
     tableStorage.remove();

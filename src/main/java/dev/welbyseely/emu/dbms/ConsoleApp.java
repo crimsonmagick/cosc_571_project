@@ -1,9 +1,5 @@
 package dev.welbyseely.emu.dbms;
 
-import dev.welbyseely.emu.dbms.commands.results.*;
-import dev.welbyseely.emu.dbms.table.Row;
-
-import java.util.List;
 import java.util.Scanner;
 
 public class ConsoleApp {
@@ -26,13 +22,12 @@ public class ConsoleApp {
 
       buffer.append(line).append("\n");
 
-      // only execute when we see a semicolon
       if (!buffer.toString().contains(";")) {
         continue;
       }
 
       String sql = buffer.toString().trim();
-      buffer.setLength(0); // clear buffer
+      buffer.setLength(0);
 
       try {
         if (dbms.executeAndPrint(sql)) {
@@ -47,30 +42,4 @@ public class ConsoleApp {
     scanner.close();
   }
 
-  private static void handleResult(Result result) {
-
-    if (result instanceof ErrorResult err) {
-      System.out.println("Error: " + err.message());
-    } else if (result instanceof MessageResult msg) {
-      System.out.println(msg.message());
-    } else if (result instanceof TupleResult tuples) {
-      printTuples(tuples.tuples());
-    } else if (result instanceof VoidResult) {
-      // optional: System.out.println("OK");
-    } else if (result instanceof ExitResult) {
-      System.out.println("Exiting...");
-    }
-  }
-
-  private static void printTuples(List<Row> rows) {
-    if (rows.isEmpty()) {
-      System.out.println("Nothing found");
-      return;
-    }
-
-    int i = 1;
-    for (Row row : rows) {
-      System.out.println(i++ + ". " + row.values());
-    }
-  }
 }

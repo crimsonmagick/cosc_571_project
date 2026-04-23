@@ -48,6 +48,7 @@ public class PrimaryIndex<T extends Comparable<? super T>> {
       this.tree = indexStorage.read();
     } else {
       this.tree = tree;
+      indexStorage.write(tree);
     }
   }
 
@@ -73,7 +74,7 @@ public class PrimaryIndex<T extends Comparable<? super T>> {
         .map(ResultEntry::value);
   }
 
-  public void remove() {
+  public void removeIndex() {
     if (removed) {
       return;
     }
@@ -97,5 +98,6 @@ public class PrimaryIndex<T extends Comparable<? super T>> {
 
   public void deleteUntyped(Comparable<?> key) {
     tree.delete((T) key);
+    indexStorage.write(tree);
   }
 }

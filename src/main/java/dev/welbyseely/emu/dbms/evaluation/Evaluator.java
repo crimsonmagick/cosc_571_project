@@ -56,8 +56,7 @@ public class Evaluator {
       return row.get(token);
     }
 
-    throw new InvalidConditionException(
-        String.format("columnName=%s not found in schema=%s", token, schema));
+    throw new InvalidConditionException("Unknown column: " + token);
   }
 
   @SuppressWarnings({"unchecked", "rawtypes"})

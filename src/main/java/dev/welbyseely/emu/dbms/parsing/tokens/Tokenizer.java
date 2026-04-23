@@ -43,10 +43,6 @@ public class Tokenizer {
     return tokens;
   }
 
-  private static Token parseToken(final String tokenStr) {
-    return new Token(TokenType.EQ, tokenStr);
-  }
-
   public static void main(final String[] args) {
     Tokenizer tokenizer = new Tokenizer();
     try {

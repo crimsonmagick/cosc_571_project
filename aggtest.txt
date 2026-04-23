@@ -1,0 +1,71 @@
+CREATE DATABASE aggtest;
+USE aggtest;
+
+CREATE TABLE employee (
+  id INTEGER PRIMARY KEY,
+  name TEXT,
+  dept TEXT,
+  salary FLOAT
+);
+
+INSERT employee VALUES (1, "Alice", "Engineering", 100000.0);
+INSERT employee VALUES (2, "Bob", "Sales", 70000.0);
+INSERT employee VALUES (3, "Charlie", "Engineering", 120000.0);
+INSERT employee VALUES (4, "Dana", "HR", 60000.0);
+INSERT employee VALUES (5, "Eve", "Engineering", 100000.0);
+
+SELECT * FROM employee;
+
+SELECT count(*) FROM employee;
+SELECT min(salary) FROM employee;
+SELECT max(salary) FROM employee;
+SELECT average(salary) FROM employee;
+
+SELECT count(*) FROM employee WHERE dept = "Engineering";
+SELECT min(salary) FROM employee WHERE dept = "Engineering";
+SELECT max(salary) FROM employee WHERE dept = "Engineering";
+SELECT average(salary) FROM employee WHERE dept = "Engineering";
+
+SELECT count(*) FROM employee WHERE salary > 9999999;
+SELECT min(salary) FROM employee WHERE salary > 9999999;
+SELECT max(salary) FROM employee WHERE salary > 9999999;
+SELECT average(salary) FROM employee WHERE salary > 9999999;
+
+SELECT min(name) FROM employee;
+SELECT max(name) FROM employee;
+
+SELECT min(bogus) FROM employee;
+SELECT average(name) FROM employee;
+SELECT count(id) FROM employee;
+SELECT count(*), name FROM employee;
+
+UPDATE employee SET salary = 50000 WHERE id = 1;
+SELECT min(salary) FROM employee;
+SELECT average(salary) FROM employee;
+
+UPDATE employee SET salary = 50000 WHERE id = 1;
+SELECT min(salary) FROM employee;
+SELECT average(salary) FROM employee;
+
+DELETE employee WHERE id = 4;
+SELECT count(*) FROM employee;
+SELECT min(salary) FROM employee;
+
+RENAME employee (x, y, z, w);
+
+SELECT count(*) FROM employee;
+SELECT min(w) FROM employee;
+SELECT max(w) FROM employee;
+SELECT average(w) FROM employee;
+
+LET eng KEY x SELECT x, w FROM employee WHERE z = "Engineering";;
+
+SELECT * FROM eng;
+
+SELECT count(*) FROM eng;
+SELECT min(w) FROM eng;
+SELECT max(w) FROM eng;
+SELECT average(w) FROM eng;
+SELECT average(w)
+    FROM employee
+    WHERE z = "Engineering";
