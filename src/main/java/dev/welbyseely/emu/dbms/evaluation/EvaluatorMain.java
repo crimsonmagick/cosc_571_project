@@ -2,6 +2,7 @@ package dev.welbyseely.emu.dbms.evaluation;
 
 import static dev.welbyseely.emu.dbms.constants.DirUtil.resolveBaseDir;
 
+import dev.welbyseely.emu.dbms.Dbms;
 import dev.welbyseely.emu.dbms.parsing.Parser;
 import dev.welbyseely.emu.dbms.parsing.tokens.Token;
 import dev.welbyseely.emu.dbms.parsing.tokens.Tokenizer;
@@ -36,7 +37,6 @@ public class EvaluatorMain {
     final Path tablePath = baseDir.resolve(schema.schemaName() + ".tbl");
     final Path indexPath = baseDir.resolve(schema.schemaName() + "_pk.idx");
 
-    // clean run (important for repeatability)
     Files.deleteIfExists(tablePath);
     Files.deleteIfExists(indexPath);
 
@@ -74,20 +74,11 @@ public class EvaluatorMain {
 
     System.out.println("\n=== Testing Query engine ===");
 
-    Tokenizer tokenizer = new Tokenizer();
+    String sql = "SELECT name, gpa FROM STuDEnT WHERE name = Alice";
 
-    String sql = "SELECT name, gpa FROM STuDEnT WHERE gpa > 2.1";
-
-    List<Token> tokens = tokenizer.tokenize(sql);
-
-    Parser parser = new Parser(tokens);
-    SelectQuery query = parser.parseSelect();
-
-    TableManager tableManager = new TableManagerImpl();
-    QueryEngine engine = new QueryEngine(tableManager);
-    List<Row> results = engine.executeSelect(query);
-
-    results.forEach(System.out::println);
+    Dbms.get()
+        .execute(sql)
+        .forEach(System.out::println);
 
   }
 }

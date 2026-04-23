@@ -5,7 +5,6 @@ import dev.welbyseely.emu.dbms.exception.InvalidConditionException;
 import dev.welbyseely.emu.dbms.query.Comparison;
 import dev.welbyseely.emu.dbms.query.Expression;
 import dev.welbyseely.emu.dbms.query.Logical;
-import dev.welbyseely.emu.dbms.schema.Attribute;
 import dev.welbyseely.emu.dbms.schema.DataType;
 import dev.welbyseely.emu.dbms.schema.Schema;
 import dev.welbyseely.emu.dbms.table.Row;
