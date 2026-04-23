@@ -20,4 +20,6 @@ public interface TableStorage {
   void delete(RecordPointer pointer);
 
   void update(RecordPointer pointer, Row newRow);
+
+  void rewriteSchema(Schema newSchema);
 }

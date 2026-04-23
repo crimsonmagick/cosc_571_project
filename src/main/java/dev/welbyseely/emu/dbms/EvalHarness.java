@@ -101,18 +101,51 @@ public class EvalHarness {
         UPDATE employee SET id = 10;
         SELECT * FROM EMPLOYEE;
         
-        DELETE employee WHERE id = 10;
         DELETE employee WHERE id = 1;
         SELECT * FROM EMPLOYEE;
         """;
 
     execSql(sql);
 
-    sql = """ 
-        DELETE employee;
-        SELECT * FROM EMPLOYEE;
+    System.out.println("--------------- Test LET--------------");
+
+    sql = """
+        LET st2 KEY id SELECT id, name FROM employee;
+        SELECT id, name FROM st2;
+        LET bad KEY salary SELECT id, name FROM employee;
+        LET st2 KEY id SELECT id FROM employee;
+        INSERT st2 VALUES (2);
+        LET empty KEY id SELECT id FROM employee WHERE id = 999;
+        SELECT * FROM empty;
         """;
     execSql(sql);
+
+    System.out.println("--------------- Test RENAME --------------");
+
+    sql = """
+        RENAME employee (x, y, z, w);
+        DESCRIBE eMployEE;
+        SELECT x, y FROM employee;
+        SELECT x FROM employee WHERE w > 90000;
+        """;
+    execSql(sql);
+
+    sql = "SELECT id FROM employee;";
+    execSql(sql);
+
+    sql = """
+        INSERT employee VALUES (5, "Dave", "Ops", 50000.0);
+        SELECT x, y FROM employee;
+        INSERT employee VALUES (6, "Eve");
+        INSERT employee VALUES ("bad", "Eve", "Ops", 50000.0);
+        """;
+    execSql(sql);
+
+//    sql = """
+//        DELETE employee;
+//        SELECT * FROM EMPLOYEE;
+//        """;
+//    execSql(sql);
 //
 //    execSql("UPDATE employee SET department = \"Platform\" WHERE name = \"Alice\";\n");
 

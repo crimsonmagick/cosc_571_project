@@ -3,6 +3,7 @@ package dev.welbyseely.emu.dbms.query;
 import dev.welbyseely.emu.dbms.commands.results.Result;
 import dev.welbyseely.emu.dbms.evaluation.Evaluator;
 import dev.welbyseely.emu.dbms.commands.query.SelectQuery;
+import dev.welbyseely.emu.dbms.exception.InvalidProjectionException;
 import dev.welbyseely.emu.dbms.storage.table.RowEntry;
 import dev.welbyseely.emu.dbms.table.Row;
 import dev.welbyseely.emu.dbms.table.Table;
@@ -25,9 +26,15 @@ public class QueryEngine {
   public List<Row> executeSelect(SelectQuery query) {
     Table table = database.getTable(query.table());
 
+    for (String col : query.columns()) {
+      if (!col.equals("*") && !table.getSchema().hasAttribute(col)) {
+        throw new InvalidProjectionException("Unknown column: " + col);
+      }
+    }
+
     List<Row> results = new ArrayList<>();
 
-    for (RowEntry rowEntry: table.scan()) {
+    for (RowEntry rowEntry : table.scan()) {
       Row row = rowEntry.row();
       if (query.where() == null ||
           evaluator.eval(query.where(), row, table.getSchema())) {

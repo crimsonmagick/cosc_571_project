@@ -8,13 +8,18 @@ import dev.welbyseely.emu.dbms.commands.query.CreateTableQuery;
 import dev.welbyseely.emu.dbms.commands.query.DeleteQuery;
 import dev.welbyseely.emu.dbms.commands.query.DescribeQuery;
 import dev.welbyseely.emu.dbms.commands.query.InsertQuery;
+import dev.welbyseely.emu.dbms.commands.query.LetQuery;
+import dev.welbyseely.emu.dbms.commands.query.RenameQuery;
 import dev.welbyseely.emu.dbms.commands.query.UpdateQuery;
 import dev.welbyseely.emu.dbms.commands.results.MessageResult;
 import dev.welbyseely.emu.dbms.commands.results.Result;
 import dev.welbyseely.emu.dbms.commands.results.TupleResult;
 import dev.welbyseely.emu.dbms.commands.results.VoidResult;
 import dev.welbyseely.emu.dbms.evaluation.Evaluator;
+import dev.welbyseely.emu.dbms.exception.TableAlreadyExistsException;
 import dev.welbyseely.emu.dbms.exception.TableDoesNotExistException;
+import dev.welbyseely.emu.dbms.exception.TableStorageException;
+import dev.welbyseely.emu.dbms.exception.TableStorageFileAlreadyExistsException;
 import dev.welbyseely.emu.dbms.index.PrimaryIndex;
 import dev.welbyseely.emu.dbms.commands.query.PreparedQuery;
 import dev.welbyseely.emu.dbms.query.QueryEngine;
@@ -52,7 +57,12 @@ public class DatabaseImpl implements Database {
   }
 
   public Table createTable(Schema schema) {
-    TableStorage storage = TableStorageProvider.createTableStorage(schema, dbPath);
+    final TableStorage storage;
+    try {
+      storage = TableStorageProvider.createTableStorage(schema, dbPath);
+    } catch (TableStorageFileAlreadyExistsException e) {
+      throw new TableAlreadyExistsException("Table " + schema.schemaName() + " already exists", e);
+    }
 
     PrimaryIndex<?> index = buildIndex(schema);
 
@@ -222,9 +232,55 @@ public class DatabaseImpl implements Database {
 
       return new VoidResult();
     }
+    if (preparedQuery instanceof RenameQuery rq) {
+      Table table = getTable(rq.table());
+      table.rename(rq.newNames());
+      return new VoidResult();
+    }
+    if (preparedQuery instanceof LetQuery lq) {
+
+      // run SELECT
+      List<Row> rows = queryEngine.executeSelect(lq.select());
+
+      List<String> columns = lq.select().columns();
+
+      // validate key exists
+      if (!columns.contains(lq.key())) {
+        throw new RuntimeException("KEY must be one of selected attributes");
+      }
+
+      List<Attribute> attrs = new ArrayList<>();
+
+      for (String col : columns) {
+        DataType type = resolveColumnType(lq.select(), col);
+        boolean isPk = col.equals(lq.key());
+
+        attrs.add(new Attribute(col, type.name(), isPk));
+      }
+
+      Schema schema = new Schema(lq.table(), attrs);
+
+      Table table = createTable(schema);
+      cache.put(schema.schemaName(), table);
+
+      for (Row row : rows) {
+        table.insert(row);
+      }
+
+      return new VoidResult();
+    }
     throw new UnsupportedOperationException(
         "Unsupported preparedQuery type, class=" + preparedQuery.getClass());
   }
+
+  private DataType resolveColumnType(SelectQuery select, String column) {
+    Table source = getTable(select.table()); // single-table assumption
+
+    Attribute attr = source.getSchema().getAttribute(column);
+
+    return DataType.valueOf(attr.type());
+  }
+
 
   private String formatDescribe(Schema schema) {
     StringBuilder sb = new StringBuilder();

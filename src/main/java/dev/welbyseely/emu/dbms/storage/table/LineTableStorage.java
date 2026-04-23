@@ -3,6 +3,7 @@ package dev.welbyseely.emu.dbms.storage.table;
 import static dev.welbyseely.emu.dbms.util.DatatypeParser.parse;
 
 import dev.welbyseely.emu.dbms.exception.TableStorageException;
+import dev.welbyseely.emu.dbms.exception.TableStorageFileAlreadyExistsException;
 import dev.welbyseely.emu.dbms.schema.Attribute;
 import dev.welbyseely.emu.dbms.schema.DataType;
 import dev.welbyseely.emu.dbms.schema.Schema;
@@ -20,7 +21,7 @@ import java.util.List;
 public class LineTableStorage implements TableStorage {
 
   private final Path path;
-  private final Schema schema;
+  private Schema schema;
   private final int dataStartLine;
   private int nextLine;
   private boolean removed;
@@ -179,6 +180,47 @@ public class LineTableStorage implements TableStorage {
     }
   }
 
+  @Override
+  public void rewriteSchema(Schema newSchema) {
+
+    try {
+      List<String> lines = Files.readAllLines(path);
+
+      List<String> newLines = new ArrayList<>();
+
+      int i = 0;
+
+      newLines.add(lines.get(i++));
+
+      newLines.add("table|" + newSchema.schemaName());
+
+      for (Attribute attr : newSchema.attributes()) {
+        newLines.add(attr.name() + "|" + attr.type() + "|" + attr.primaryKey());
+      }
+
+      while (!lines.get(i).equals("#data")) {
+        i++;
+      }
+
+      newLines.add("");
+      newLines.add("#data");
+      i++;
+
+      // copy all data rows unchanged
+      while (i < lines.size()) {
+        newLines.add(lines.get(i++));
+      }
+
+      Files.write(path, newLines);
+
+      // update internal schema reference
+      this.schema = newSchema;
+
+    } catch (IOException e) {
+      throw new TableStorageException("Failed to rewrite schema", e);
+    }
+  }
+
   private record ReadResult(int dataStartLine, Schema schema) {
 
   }
@@ -268,7 +310,7 @@ public class LineTableStorage implements TableStorage {
    */
   private static int createFile(final Path path, final Schema schema) {
     if (Files.exists(path)) {
-      throw new TableStorageException("Tablefile already exists");
+      throw new TableStorageFileAlreadyExistsException("Tablefile already exists");
     }
     try {
       Files.createFile(path);

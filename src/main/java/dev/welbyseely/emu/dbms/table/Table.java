@@ -12,7 +12,7 @@ import java.util.Optional;
 
 public class Table {
 
-  private final Schema schema;
+  private Schema schema;
   private final TableStorage tableStorage;
   private final PrimaryIndex<?> index;
 
@@ -142,5 +142,34 @@ public class Table {
     }
 
     tableStorage.remove();
+  }
+
+  public void rename(List<String> newNames) {
+
+    List<Attribute> oldAttrs = schema.attributes();
+
+    if (oldAttrs.size() != newNames.size()) {
+      throw new RuntimeException(
+          "Attribute count mismatch: expected " + oldAttrs.size()
+              + " but got " + newNames.size());
+    }
+
+    List<Attribute> newAttrs = new ArrayList<>();
+
+    for (int i = 0; i < oldAttrs.size(); i++) {
+      Attribute old = oldAttrs.get(i);
+
+      newAttrs.add(new Attribute(
+          newNames.get(i),
+          old.type(),
+          old.primaryKey()
+      ));
+    }
+
+    Schema newSchema = new Schema(schema.schemaName(), newAttrs);
+
+    tableStorage.rewriteSchema(newSchema);
+
+    this.schema = newSchema;
   }
 }

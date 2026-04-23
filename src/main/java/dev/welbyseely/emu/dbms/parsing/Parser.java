@@ -15,6 +15,8 @@ import dev.welbyseely.emu.dbms.commands.query.CreateTableQuery;
 import dev.welbyseely.emu.dbms.commands.query.DeleteQuery;
 import dev.welbyseely.emu.dbms.commands.query.DescribeQuery;
 import dev.welbyseely.emu.dbms.commands.query.InsertQuery;
+import dev.welbyseely.emu.dbms.commands.query.LetQuery;
+import dev.welbyseely.emu.dbms.commands.query.RenameQuery;
 import dev.welbyseely.emu.dbms.commands.query.UpdateQuery;
 import dev.welbyseely.emu.dbms.exception.DbmsParseException;
 import dev.welbyseely.emu.dbms.query.Comparison;
@@ -25,6 +27,7 @@ import dev.welbyseely.emu.dbms.parsing.tokens.Token;
 import dev.welbyseely.emu.dbms.parsing.tokens.TokenType;
 import dev.welbyseely.emu.dbms.parsing.tokens.Tokenizer;
 import dev.welbyseely.emu.dbms.schema.Attribute;
+import dev.welbyseely.emu.dbms.schema.DataType;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -53,9 +56,42 @@ public class Parser {
       case USE -> parseUse();
       case DESCRIBE -> parseDescribe();
       case DELETE -> parseDelete();
+      case RENAME -> parseRename();
+      case LET -> parseLet();
       default ->
           throw new UnsupportedOperationException("Command not supported: " + firstToken.text());
     };
+  }
+
+  private LetQuery parseLet() {
+    expect(TokenType.LET);
+
+    String tableName = expect(TokenType.IDENTIFIER).text();
+
+    expect(TokenType.KEY);
+    String keyAttr = expect(TokenType.IDENTIFIER).text();
+
+    SelectQuery select = parseSelect();
+
+    return new LetQuery(tableName, keyAttr, select);
+  }
+
+  private RenameQuery parseRename() {
+    expect(TokenType.RENAME);
+
+    String tableName = expect(TokenType.IDENTIFIER).text();
+
+    expect(TokenType.LPAREN);
+
+    List<String> newNames = new ArrayList<>();
+
+    do {
+      newNames.add(expect(TokenType.IDENTIFIER).text());
+    } while (match(TokenType.COMMA));
+
+    expect(TokenType.RPAREN);
+
+    return new RenameQuery(tableName, newNames);
   }
 
   private DeleteQuery parseDelete() {
