@@ -1,0 +1,67 @@
+CREATE DATABASE demo;
+USE demo;
+CREATE TABLE employee (id INTEGER PRIMARY KEY, name TEXT, department TEXT, salary FLOAT);
+DESCRIBE employee;
+INSERT employee VALUES (1, "Alice", "Engineering", 95000.0);
+INSERT employee VALUES (2, "Bob", "Sales", 72000.0);
+INSERT employee VALUES (3, "Charlie", "Engineering", 105000.0);
+SELECT * FROM employee;
+SELECT name, department FROM employee WHERE salary > 80000.0;
+UPDATE employee SET department = "Platform" WHERE id = 1;
+SELECT * FROM employee;
+UPDATE employee SET salary = 80000.0 WHERE name = "Bob";
+SELECT * FROM employee;
+DELETE employee WHERE id = 2;
+SELECT * FROM employee;
+
+RENAME employee (x, y, z, w);
+DESCRIBE employee;
+SELECT * FROM employee;
+SELECT x, y FROM employee;
+SELECT x FROM employee WHERE w > 90000.0;
+INSERT employee VALUES (4, "Dave", "Ops", 50000.0);
+SELECT * FROM employee;
+
+LET emp2 KEY x SELECT x, y FROM employee;
+DESCRIBE emp2;
+SELECT * FROM emp2;
+INSERT emp2 VALUES (5, "Eve");
+SELECT * FROM emp2;
+LET empty KEY x SELECT x FROM employee WHERE x = 999;
+SELECT * FROM empty;
+
+CREATE TABLE project (
+  project_id INTEGER PRIMARY KEY,
+  project_name TEXT,
+  owner TEXT,
+  budget FLOAT
+);
+
+INSERT project VALUES (
+  100,
+  "Apollo",
+  "Alice",
+  1000000.0
+);
+
+SELECT project_name, budget FROM project WHERE budget > 500000.0;
+
+CREATE DATABASE corp;
+USE corp;
+CREATE TABLE employee (id INTEGER PRIMARY KEY, name TEXT, department TEXT, salary FLOAT);
+INSERT employee VALUES (1, "Alice", "Engineering", 95000.0);
+INSERT employee VALUES (2, "Bob", "Sales", 72000.0);
+INSERT employee VALUES (3, "Charlie", "Engineering", 105000.0);
+SELECT * FROM employee;
+UPDATE employee SET salary = 99000.0 WHERE id = 1;
+SELECT * FROM employee;
+RENAME employee (emp_id, emp_name, dept, pay);
+DESCRIBE employee;
+SELECT emp_name, dept FROM employee WHERE pay >= 95000.0;
+LET engineers KEY emp_id SELECT emp_id, emp_name FROM employee WHERE dept = "Engineering";
+SELECT * FROM engineers;
+DELETE employee WHERE emp_id = 2;
+SELECT * FROM employee;
+DELETE engineers;
+SELECT * FROM engineers;
+EXIT;

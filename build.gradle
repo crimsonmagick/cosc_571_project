@@ -2,6 +2,15 @@ plugins {
     id 'java'
     id 'groovy'
     id 'idea'
+    id 'application'
+}
+
+application {
+    mainClass = 'dev.welbyseely.emu.dbms.ConsoleApp'
+}
+
+tasks.named('run', JavaExec) {
+    standardInput = System.in
 }
 
 group = 'dev.welbyseely.emu'

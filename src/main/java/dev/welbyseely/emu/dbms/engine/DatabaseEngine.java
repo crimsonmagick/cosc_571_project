@@ -62,7 +62,7 @@ public class DatabaseEngine {
       }
       return executeCommand(preparedCommand);
     } catch (final RuntimeException e) {
-      return new ErrorResult("Failed to execute command. Reason: " + e.getMessage());
+      return new ErrorResult("Reason: " + e.getMessage());
     }
   }
 
