@@ -3,21 +3,18 @@ package dev.welbyseely.emu.dbms.evaluation;
 import static dev.welbyseely.emu.dbms.constants.DirUtil.resolveBaseDir;
 
 import dev.welbyseely.emu.dbms.Dbms;
-import dev.welbyseely.emu.dbms.parsing.Parser;
-import dev.welbyseely.emu.dbms.parsing.tokens.Token;
-import dev.welbyseely.emu.dbms.parsing.tokens.Tokenizer;
-import dev.welbyseely.emu.dbms.query.QueryEngine;
-import dev.welbyseely.emu.dbms.query.SelectQuery;
 import dev.welbyseely.emu.dbms.schema.Attribute;
 import dev.welbyseely.emu.dbms.schema.DataType;
 import dev.welbyseely.emu.dbms.schema.Schema;
+import dev.welbyseely.emu.dbms.table.Database;
+import dev.welbyseely.emu.dbms.table.DatabaseImpl;
 import dev.welbyseely.emu.dbms.table.Row;
 import dev.welbyseely.emu.dbms.table.Table;
-import dev.welbyseely.emu.dbms.table.TableManager;
-import dev.welbyseely.emu.dbms.table.TableManagerImpl;
-import dev.welbyseely.emu.dbms.table.TableProvider;
+import java.io.IOException;
+import java.io.UncheckedIOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.Comparator;
 import java.util.List;
 import java.util.Map;
 
@@ -34,13 +31,20 @@ public class EvaluatorMain {
     );
 
     final Path baseDir = resolveBaseDir();
-    final Path tablePath = baseDir.resolve(schema.schemaName() + ".tbl");
-    final Path indexPath = baseDir.resolve(schema.schemaName() + "_pk.idx");
+    try (var stream = Files.walk(baseDir)) {
+      stream
+          .sorted(Comparator.reverseOrder())
+          .forEach(path -> {
+            try {
+              Files.delete(path);
+            } catch (IOException e) {
+              throw new UncheckedIOException(e);
+            }
+          });
+    }
 
-    Files.deleteIfExists(tablePath);
-    Files.deleteIfExists(indexPath);
-
-    final Table table = TableProvider.create(schema);
+    Database database = new DatabaseImpl("tempdb");
+    Table table = database.createTable(schema);
 
     System.out.println("=== Inserting rows ===");
 

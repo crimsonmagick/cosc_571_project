@@ -6,19 +6,19 @@ import dev.welbyseely.emu.dbms.parsing.tokens.Tokenizer;
 import dev.welbyseely.emu.dbms.query.QueryEngine;
 import dev.welbyseely.emu.dbms.query.SelectQuery;
 import dev.welbyseely.emu.dbms.table.Row;
-import dev.welbyseely.emu.dbms.table.TableManager;
+import dev.welbyseely.emu.dbms.table.Database;
 import java.util.List;
 
 public class DatabaseEngine {
 
   private final Tokenizer tokenizer;
-  private final TableManager tableManager;
+  private final Database database;
   private final QueryEngine queryEngine;
 
-  public DatabaseEngine(TableManager tableManager) {
+  public DatabaseEngine(Database database) {
     this.tokenizer = new Tokenizer();
-    this.tableManager = tableManager;
-    this.queryEngine = new QueryEngine(tableManager);
+    this.database = database;
+    this.queryEngine = new QueryEngine(database);
   }
 
   public List<Row> execute(String sql) {

@@ -4,22 +4,23 @@ import dev.welbyseely.emu.dbms.evaluation.Evaluator;
 import dev.welbyseely.emu.dbms.table.Row;
 import dev.welbyseely.emu.dbms.table.Table;
 
-import dev.welbyseely.emu.dbms.table.TableManager;
+import dev.welbyseely.emu.dbms.table.Database;
 import java.util.ArrayList;
 import java.util.List;
 
 public class QueryEngine {
 
-  private final TableManager tableManager;
+  private final Database database;
 
-  public QueryEngine(final TableManager tableManager) {
-    this.tableManager = tableManager;
+  public QueryEngine(final Database database) {
+    this.database = database;
   }
 
   private final Evaluator evaluator = new Evaluator();
 
+
   public List<Row> executeSelect(SelectQuery query) {
-    Table table = tableManager.getTable(query.table());
+    Table table = database.getTable(query.table());
 
     List<Row> results = new ArrayList<>();
 

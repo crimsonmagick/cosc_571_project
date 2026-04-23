@@ -21,6 +21,7 @@ public class PrimaryIndex<T extends Comparable<? super T>> {
 
   public PrimaryIndex(final BinarySearchTree<T, RecordPointer> tree,
       final String indexName,
+      final Path indexDir,
       final DataType keyType,
       final java.util.function.Function<String, T> keyParser,
       final java.util.function.Function<T, String> keySerializer) {
@@ -28,7 +29,7 @@ public class PrimaryIndex<T extends Comparable<? super T>> {
     this.removed = false;
 
     final Path baseDir = resolveBaseDir();
-    final Path indexPath = baseDir.resolve(indexName + ".idx");
+    final Path indexPath = indexDir.resolve(indexName + ".idx");
 
     try {
       Files.createDirectories(baseDir);

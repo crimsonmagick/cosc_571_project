@@ -1,9 +1,9 @@
 package dev.welbyseely.emu.dbms;
 
 import dev.welbyseely.emu.dbms.engine.DatabaseEngine;
+import dev.welbyseely.emu.dbms.table.DatabaseImpl;
 import dev.welbyseely.emu.dbms.table.Row;
-import dev.welbyseely.emu.dbms.table.TableManager;
-import dev.welbyseely.emu.dbms.table.TableManagerImpl;
+import dev.welbyseely.emu.dbms.table.Database;
 import java.util.List;
 
 public final class Dbms {
@@ -13,8 +13,8 @@ public final class Dbms {
   private final DatabaseEngine engine;
 
   private Dbms() {
-    TableManager tableManager = new TableManagerImpl(); // shared cache
-    this.engine = new DatabaseEngine(tableManager);
+    Database database = new DatabaseImpl("tempdb"); // TODO need to support multiple!!
+    this.engine = new DatabaseEngine(database);
   }
 
   public static Dbms get() {

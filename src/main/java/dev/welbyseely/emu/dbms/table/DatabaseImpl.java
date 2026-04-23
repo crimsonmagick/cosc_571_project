@@ -1,5 +1,9 @@
 package dev.welbyseely.emu.dbms.table;
 
+
+import static dev.welbyseely.emu.dbms.constants.DirUtil.resolveBaseDir;
+
+import dev.welbyseely.emu.dbms.exception.TableDoesNotExistException;
 import dev.welbyseely.emu.dbms.index.PrimaryIndex;
 import dev.welbyseely.emu.dbms.schema.Attribute;
 import dev.welbyseely.emu.dbms.schema.DataType;
@@ -8,19 +12,46 @@ import dev.welbyseely.emu.dbms.storage.table.RecordPointer;
 import dev.welbyseely.emu.dbms.storage.table.TableStorage;
 import dev.welbyseely.emu.dbms.storage.table.TableStorageProvider;
 import dev.welbyseely.emu.dbms.tree.BinarySearchTree;
+import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.HashMap;
+import java.util.Map;
 
-public class TableProvider {
+public class DatabaseImpl implements Database {
 
-  public static Table create(Schema schema) {
-    TableStorage storage = TableStorageProvider.createTableStorage(schema);
+  private final String dbName;
+  private final Path dbPath;
+  private final Map<String, Table> cache = new HashMap<>();
+
+  public DatabaseImpl(final String dbName) {
+    this.dbName = dbName;
+    this.dbPath = resolveBaseDir().resolve(dbName);
+  }
+
+  public Table createTable(Schema schema) {
+    TableStorage storage = TableStorageProvider.createTableStorage(schema, dbPath);
 
     PrimaryIndex<?> index = buildIndex(schema);
 
     return new Table(schema, storage, index);
   }
 
-  public static Table load(Path tablePath) {
+  public Table getTable(String name) {
+    return cache.computeIfAbsent(name, this::loadTable);
+  }
+
+  @Override
+  public String getName() {
+    return dbName;
+  }
+
+  private Table loadTable(String name) {
+    Path tablePath = dbPath.resolve(name.toLowerCase() + ".tbl");
+
+    if (!Files.exists(tablePath)) {
+      throw new TableDoesNotExistException(name);
+    }
+
     TableStorage storage = TableStorageProvider.readTableStorage(tablePath);
     Schema schema = storage.getSchema();
 
@@ -29,7 +60,7 @@ public class TableProvider {
     return new Table(schema, storage, index);
   }
 
-  private static PrimaryIndex<?> buildIndex(Schema schema) {
+  private PrimaryIndex<?> buildIndex(Schema schema) {
     Attribute pk = getPrimaryKeyAttribute(schema);
     if (pk == null) {
       return null;
@@ -42,6 +73,7 @@ public class TableProvider {
       case INTEGER -> new PrimaryIndex<>(
           new BinarySearchTree<Integer, RecordPointer>(),
           indexName,
+          dbPath,
           type,
           Integer::parseInt,
           i -> Integer.toString(i)
@@ -50,6 +82,7 @@ public class TableProvider {
       case FLOAT -> new PrimaryIndex<>(
           new BinarySearchTree<>(),
           indexName,
+          dbPath,
           type,
           Double::parseDouble,
           d -> Double.toString(d)
@@ -58,6 +91,7 @@ public class TableProvider {
       case TEXT -> new PrimaryIndex<>(
           new BinarySearchTree<String, RecordPointer>(),
           indexName,
+          dbPath,
           type,
           s -> s,
           s -> s
@@ -71,4 +105,6 @@ public class TableProvider {
         .findFirst()
         .orElse(null);
   }
+
+
 }

@@ -6,6 +6,6 @@ public record SelectQuery(
     List<String> columns,
     String table,
     Expression where
-) {
+) implements PreparedQuery {
 
 }

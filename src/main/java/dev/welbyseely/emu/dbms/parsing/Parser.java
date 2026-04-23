@@ -4,6 +4,7 @@ import dev.welbyseely.emu.dbms.exception.DbmsParseException;
 import dev.welbyseely.emu.dbms.query.Comparison;
 import dev.welbyseely.emu.dbms.query.Expression;
 import dev.welbyseely.emu.dbms.query.Logical;
+import dev.welbyseely.emu.dbms.query.PreparedQuery;
 import dev.welbyseely.emu.dbms.query.SelectQuery;
 import dev.welbyseely.emu.dbms.parsing.tokens.Token;
 import dev.welbyseely.emu.dbms.parsing.tokens.TokenType;
@@ -19,6 +20,12 @@ public class Parser {
   public Parser(final List<Token> tokens) {
     this.tokens = tokens;
   }
+
+//  public PreparedQuery parse() {
+//    if (tokens.isEmpty()) {
+//
+//    }
+//  }
 
   public SelectQuery parseSelect() {
     expect(TokenType.SELECT);
