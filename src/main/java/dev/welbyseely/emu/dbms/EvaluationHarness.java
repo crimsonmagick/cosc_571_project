@@ -81,12 +81,15 @@ public class EvaluationHarness {
 
     String sql = "SELECT name, gpa FROM STuDEnT WHERE name = Alice;";
 
-    Dbms.get().execute("CREATE tempdb");
-    Dbms.get().execute("USE tempdb");
+    Dbms dbms = Dbms.get();
+    dbms.executeStatement("CREATE DATABASE tempdb");
+    dbms.executeStatement("USE tempdb");
     Result result = Dbms.get()
         .executeStatement(sql);
     ((TupleResult) result).tuples()
         .forEach(System.out::println);
+
+    dbms.executeStatement("CREATE TABLE student (id INTEGER PRIMARY KEY, name TEXT, gpa FLOAT)");
 
   }
 }

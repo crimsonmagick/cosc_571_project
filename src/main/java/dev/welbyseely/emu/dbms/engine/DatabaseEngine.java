@@ -1,7 +1,7 @@
 package dev.welbyseely.emu.dbms.engine;
 
 import dev.welbyseely.emu.dbms.commands.PreparedCommand;
-import dev.welbyseely.emu.dbms.commands.engine.CreateCommand;
+import dev.welbyseely.emu.dbms.commands.engine.CreateDatabaseCommand;
 import dev.welbyseely.emu.dbms.commands.engine.ExitCommand;
 import dev.welbyseely.emu.dbms.commands.engine.UseCommand;
 import dev.welbyseely.emu.dbms.commands.query.PreparedQuery;
@@ -14,7 +14,6 @@ import dev.welbyseely.emu.dbms.parsing.Parser;
 import dev.welbyseely.emu.dbms.parsing.tokens.Token;
 import dev.welbyseely.emu.dbms.parsing.tokens.Tokenizer;
 import dev.welbyseely.emu.dbms.table.DatabaseImpl;
-import dev.welbyseely.emu.dbms.table.Row;
 import dev.welbyseely.emu.dbms.table.Database;
 import java.util.Arrays;
 import java.util.HashMap;
@@ -69,7 +68,7 @@ public class DatabaseEngine {
   private Result executeCommand(final PreparedCommand preparedCommand) {
     return switch (preparedCommand) {
       case ExitCommand exitCommand -> new ExitResult();
-      case CreateCommand(String databaseName) -> createDatabase(databaseName);
+      case CreateDatabaseCommand(String databaseName) -> createDatabase(databaseName);
       case UseCommand(String databaseName) -> useDatabase(databaseName);
       case null, default ->
           throw new UnsupportedOperationException("Command not supported: " + preparedCommand);

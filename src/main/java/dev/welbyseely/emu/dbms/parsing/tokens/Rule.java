@@ -16,6 +16,16 @@ record Rule(Pattern pattern, TokenType type) {
       new Rule(Pattern.compile("^WHERE\\b", Pattern.CASE_INSENSITIVE), TokenType.WHERE),
       new Rule(Pattern.compile("^AND\\b", Pattern.CASE_INSENSITIVE), TokenType.AND),
       new Rule(Pattern.compile("^OR\\b", Pattern.CASE_INSENSITIVE), TokenType.OR),
+      new Rule(Pattern.compile("^DATABASE\\b", Pattern.CASE_INSENSITIVE), TokenType.DATABASE),
+      new Rule(Pattern.compile("^TABLE\\b", Pattern.CASE_INSENSITIVE), TokenType.TABLE),
+      new Rule(Pattern.compile("^PRIMARY\\b", Pattern.CASE_INSENSITIVE), TokenType.PRIMARY),
+      new Rule(Pattern.compile("^INTEGER\\b", Pattern.CASE_INSENSITIVE), TokenType.INTEGER),
+      new Rule(Pattern.compile("^FLOAT\\b", Pattern.CASE_INSENSITIVE), TokenType.FLOAT),
+
+      new Rule(Pattern.compile("^\\("), TokenType.LPAREN),
+      new Rule(Pattern.compile("^\\)"), TokenType.RPAREN),
+      new Rule(Pattern.compile("^KEY\\b", Pattern.CASE_INSENSITIVE), TokenType.KEY),
+      new Rule(Pattern.compile("^TEXT\\b", Pattern.CASE_INSENSITIVE), TokenType.TEXT),
 
       new Rule(Pattern.compile("^\\*"), TokenType.ASTERISK),
       new Rule(Pattern.compile("^,"), TokenType.COMMA),

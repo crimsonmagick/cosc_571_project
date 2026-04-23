@@ -3,8 +3,10 @@ package dev.welbyseely.emu.dbms.table;
 
 import static dev.welbyseely.emu.dbms.constants.DirUtil.resolveBaseDir;
 
+import dev.welbyseely.emu.dbms.commands.query.CreateTableQuery;
 import dev.welbyseely.emu.dbms.commands.results.Result;
 import dev.welbyseely.emu.dbms.commands.results.TupleResult;
+import dev.welbyseely.emu.dbms.commands.results.VoidResult;
 import dev.welbyseely.emu.dbms.exception.TableDoesNotExistException;
 import dev.welbyseely.emu.dbms.index.PrimaryIndex;
 import dev.welbyseely.emu.dbms.commands.query.PreparedQuery;
@@ -58,6 +60,11 @@ public class DatabaseImpl implements Database {
     if (preparedQuery instanceof SelectQuery q) {
       var rows = queryEngine.executeSelect(q);
       return new TupleResult(rows);
+    }
+    if (preparedQuery instanceof CreateTableQuery ctq) {
+      final Schema schema = new Schema(ctq.table(), ctq.attributes());
+      createTable(schema);
+      return new VoidResult();
     }
     throw new UnsupportedOperationException(
         "Unsupported preparedQuery type, class=" + preparedQuery.getClass());

@@ -1,9 +1,10 @@
 package dev.welbyseely.emu.dbms.parsing;
 
 import dev.welbyseely.emu.dbms.commands.PreparedCommand;
-import dev.welbyseely.emu.dbms.commands.engine.CreateCommand;
+import dev.welbyseely.emu.dbms.commands.engine.CreateDatabaseCommand;
 import dev.welbyseely.emu.dbms.commands.engine.ExitCommand;
 import dev.welbyseely.emu.dbms.commands.engine.UseCommand;
+import dev.welbyseely.emu.dbms.commands.query.CreateTableQuery;
 import dev.welbyseely.emu.dbms.exception.DbmsParseException;
 import dev.welbyseely.emu.dbms.query.Comparison;
 import dev.welbyseely.emu.dbms.query.Expression;
@@ -12,6 +13,7 @@ import dev.welbyseely.emu.dbms.commands.query.SelectQuery;
 import dev.welbyseely.emu.dbms.parsing.tokens.Token;
 import dev.welbyseely.emu.dbms.parsing.tokens.TokenType;
 import dev.welbyseely.emu.dbms.parsing.tokens.Tokenizer;
+import dev.welbyseely.emu.dbms.schema.Attribute;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -39,10 +41,58 @@ public class Parser {
     };
   }
 
-  public CreateCommand parseCreate() {
+  public PreparedCommand parseCreate() {
     expect(TokenType.CREATE);
-    final String databaseName = parseDatabaseName();
-    return new CreateCommand(databaseName);
+
+    if (match(TokenType.DATABASE)) {
+      String databaseName = expect(TokenType.IDENTIFIER).text();
+      return new CreateDatabaseCommand(databaseName);
+    }
+
+    if (match(TokenType.TABLE)) {
+      return parseCreateTable();
+    }
+
+    throw new DbmsParseException("Expected DATABASE or TABLE after CREATE");
+  }
+
+  private CreateTableQuery parseCreateTable() {
+    String tableName = expect(TokenType.IDENTIFIER).text();
+
+    expect(TokenType.LPAREN);
+
+    List<Attribute> attributes = new ArrayList<>();
+
+    do {
+      attributes.add(parseAttribute());
+    } while (match(TokenType.COMMA));
+
+    expect(TokenType.RPAREN);
+
+    return new CreateTableQuery(tableName, attributes);
+  }
+
+  private Attribute parseAttribute() {
+    String name = expect(TokenType.IDENTIFIER).text();
+
+    Token typeToken = advance();
+
+    if (typeToken.type() != TokenType.INTEGER &&
+        typeToken.type() != TokenType.FLOAT &&
+        typeToken.type() != TokenType.TEXT) {
+      throw new DbmsParseException("Expected data type but got " + typeToken);
+    }
+
+    String type = typeToken.text().toUpperCase();
+
+    boolean primaryKey = false;
+
+    if (match(TokenType.PRIMARY)) {
+      expect(TokenType.KEY);
+      primaryKey = true;
+    }
+
+    return new Attribute(name, type, primaryKey);
   }
 
   public UseCommand parseUse() {
