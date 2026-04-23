@@ -1,5 +1,7 @@
 package dev.welbyseely.emu.dbms.storage.table;
 
+import static dev.welbyseely.emu.dbms.util.DatatypeParser.parse;
+
 import dev.welbyseely.emu.dbms.exception.TableStorageException;
 import dev.welbyseely.emu.dbms.schema.Attribute;
 import dev.welbyseely.emu.dbms.schema.DataType;
@@ -302,12 +304,6 @@ public class LineTableStorage implements TableStorage {
     return new Row(values);
   }
 
-  private Object parse(String raw, DataType type) {
-    return switch (type) {
-      case DataType.INTEGER -> raw.isEmpty() ? null : Integer.parseInt(raw);
-      case DataType.FLOAT -> raw.isEmpty() ? null : Double.parseDouble(raw);
-      case DataType.TEXT -> raw;
-    };
-  }
+
 
 }

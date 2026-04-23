@@ -16,4 +16,9 @@ public record Schema(String schemaName, List<Attribute> attributes) {
         .orElseThrow(() -> new RuntimeException("Can't find attribute with name=" + attrName));
   }
 
+  public boolean hasAttribute(final String name) {
+    return this.attributes().stream()
+        .anyMatch(attr -> attr.name().equals(name));
+  }
+
 }

@@ -1,11 +1,15 @@
 package dev.welbyseely.emu.dbms.evaluation;
 
 import dev.welbyseely.emu.dbms.exception.DbmsParseException;
+import dev.welbyseely.emu.dbms.exception.InvalidConditionException;
 import dev.welbyseely.emu.dbms.query.Comparison;
 import dev.welbyseely.emu.dbms.query.Expression;
 import dev.welbyseely.emu.dbms.query.Logical;
+import dev.welbyseely.emu.dbms.schema.Attribute;
+import dev.welbyseely.emu.dbms.schema.DataType;
 import dev.welbyseely.emu.dbms.schema.Schema;
 import dev.welbyseely.emu.dbms.table.Row;
+import dev.welbyseely.emu.dbms.util.DatatypeParser;
 
 public class Evaluator {
 
@@ -32,50 +36,35 @@ public class Evaluator {
   }
 
   private boolean evalComparison(Comparison c, Row row, Schema schema) {
-    Object left = resolveValue(c.left(), row, schema);
-    Object right = resolveValue(c.right(), row, schema);
+    final Object left = resolveAttributeValue(c.left(), row, schema);
+    final Object right;
+    if (schema.hasAttribute(c.right())) {
+      right = resolveAttributeValue(c.right(), row, schema);
+    } else {
+      final DataType dataType = DataType.valueOf(schema.getAttribute(c.left()).type());
+      right = DatatypeParser.parse(c.right(), dataType);
+    }
 
     if (left == null || right == null) {
-      return false; // simple null handling for now
+      return false;
     }
 
     return compare(left, c.op(), right);
   }
 
-  private Object resolveValue(String token, Row row, Schema schema) {
-    // column reference
-    if (hasAttribute(schema, token)) {
+  private Object resolveAttributeValue(String token, Row row, Schema schema) {
+    if (schema.hasAttribute(token)) {
       return row.get(token);
     }
 
-    // literal → infer type from schema context (best effort)
-    // fallback: try parsing in order
-    return parseLiteral(token);
-  }
-
-  private boolean hasAttribute(Schema schema, String name) {
-    return schema.attributes().stream()
-        .anyMatch(attr -> attr.name().equals(name));
-  }
-
-  private Object parseLiteral(String raw) {
-    // try integer
-    try {
-      return Integer.parseInt(raw);
-    } catch (Exception ignored) {}
-
-    // try double
-    try {
-      return Double.parseDouble(raw);
-    } catch (Exception ignored) {}
-
-    // fallback → string
-    return raw;
+    throw new InvalidConditionException(
+        String.format("columnName=%s not found in schema=%s", token, schema));
   }
 
   @SuppressWarnings({"unchecked", "rawtypes"})
   private boolean compare(Object left, String op, Object right) {
-    if (!(left instanceof Comparable l) || !(right instanceof Comparable r)) {
+    if (!(left instanceof Comparable l) || !(right instanceof Comparable r)
+        || !r.getClass().isAssignableFrom(l.getClass())) {
       throw new DbmsParseException("Values not comparable: " + left + ", " + right);
     }
 

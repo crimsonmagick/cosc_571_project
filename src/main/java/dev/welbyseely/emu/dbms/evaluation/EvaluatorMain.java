@@ -45,13 +45,13 @@ public class EvaluatorMain {
     System.out.println("=== Inserting rows ===");
 
     table.insert(new Row(Map.of(
-        "id", 1,
+        "id", 2,
         "name", "Alice",
         "gpa", 3.5
     )));
 
     table.insert(new Row(Map.of(
-        "id", 2,
+        "id", 1,
         "name", "Bob",
         "gpa", 2.75
     )));
@@ -76,7 +76,7 @@ public class EvaluatorMain {
 
     Tokenizer tokenizer = new Tokenizer();
 
-    String sql = "SELECT name, gpa FROM STuDEnT WHERE gpa> 3";
+    String sql = "SELECT name, gpa FROM STuDEnT WHERE gpa > 2.1";
 
     List<Token> tokens = tokenizer.tokenize(sql);
 
