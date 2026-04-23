@@ -6,9 +6,11 @@ import dev.welbyseely.emu.dbms.commands.results.InputResult;
 import dev.welbyseely.emu.dbms.commands.results.MessageResult;
 import dev.welbyseely.emu.dbms.commands.results.Result;
 import dev.welbyseely.emu.dbms.commands.results.TupleResult;
-import dev.welbyseely.emu.dbms.commands.results.VoidResult;
 import dev.welbyseely.emu.dbms.engine.DatabaseEngine;
+import dev.welbyseely.emu.dbms.table.Row;
+import java.io.FileOutputStream;
 import java.io.IOException;
+import java.io.PrintStream;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.List;
@@ -40,17 +42,21 @@ public final class Dbms {
   }
 
   public boolean executeAndPrint(String sql) {
+    return executeAndPrint(sql, System.out);
+  }
+
+  public boolean executeAndPrint(String sql, PrintStream out) {
     List<Result> results = execute(sql);
 
     for (Result result : results) {
-      if (result instanceof InputResult inputResult) {
-        if (executeInputAndPrint(inputResult)) {
+      if (result instanceof InputResult input) {
+        if (executeInputAndPrint(input)) {
           return true;
         }
         continue;
       }
 
-      printResult(result);
+      printResult(result, out);
 
       if (result instanceof ExitResult) {
         return true;
@@ -60,57 +66,68 @@ public final class Dbms {
     return false;
   }
 
-  private boolean executeInputAndPrint(InputResult inputResult) {
+  private boolean executeInputAndPrint(InputResult input) {
+    PrintStream out = System.out;
+
     try {
-      String fileContents = Files.readString(Path.of(inputResult.input()));
+      if (input.output() != null) {
+        out = new PrintStream(new FileOutputStream(input.output()), true);
+      }
 
-      List<Result> nestedResults = execute(fileContents);
+      String fileContents = Files.readString(Path.of(input.input()));
 
-      for (Result nested : nestedResults) {
-        if (nested instanceof InputResult nestedInput) {
-          if (executeInputAndPrint(nestedInput)) {
+      List<Result> results = execute(fileContents);
+
+      for (Result result : results) {
+        if (result instanceof InputResult nested) {
+          if (executeInputAndPrint(nested)) {
             return true;
           }
           continue;
         }
 
-        printResult(nested);
+        printResult(result, out);
 
-        if (nested instanceof ExitResult) {
+        if (result instanceof ExitResult) {
           return true;
         }
       }
 
       return false;
-    } catch (final IOException e) {
-      printResult(new ErrorResult("Failed to read input file: " + inputResult.input()));
+
+    } catch (IOException e) {
+      printResult(new ErrorResult("Failed to process input file: " + input.input()), System.out);
       return false;
+
+    } finally {
+      if (out != System.out) {
+        out.close();
+      }
     }
   }
 
-  private void printResult(Result result) {
-    if (result instanceof ErrorResult(String message)) {
-      System.out.println("Error: " + message);
+  private void printResult(Result result, PrintStream out) {
+    if (result instanceof ErrorResult err) {
+      out.println("Error: " + err.message());
     } else if (result instanceof MessageResult msg) {
-      System.out.println(msg.message());
+      out.println(msg.message());
     } else if (result instanceof TupleResult tuples) {
-      printTuples(tuples.tuples());
-    } else if (result instanceof VoidResult) {
-      System.out.println("OK");
+      printTuples(tuples.tuples(), out);
     } else if (result instanceof ExitResult) {
-      System.out.println("Exiting...");
+      out.println("Exiting...");
     }
+    out.flush();
   }
 
-  private void printTuples(List<dev.welbyseely.emu.dbms.table.Row> rows) {
+  private void printTuples(List<Row> rows, PrintStream out) {
     if (rows.isEmpty()) {
-      System.out.println("Nothing found");
+      out.println("Nothing found");
       return;
     }
 
     int i = 1;
-    for (var row : rows) {
-      System.out.println(i++ + ". " + row.values());
+    for (Row row : rows) {
+      out.println(i++ + ". " + row.values());
     }
   }
 }
