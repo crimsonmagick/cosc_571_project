@@ -35,11 +35,7 @@ public class ConsoleApp {
       buffer.setLength(0); // clear buffer
 
       try {
-        Result result = dbms.executeStatement(sql);
-
-        handleResult(result);
-
-        if (result instanceof ExitResult) {
+        if (dbms.executeAndPrint(sql)) {
           break;
         }
 

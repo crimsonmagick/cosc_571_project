@@ -108,6 +108,10 @@ public class AggregateHarness {
         """;
 
     execSql(sql);
+
+    sql = "SELECT count(*) FROM employee WHERE salary > 9999999;";
+
+    execSql(sql);
   }
 
   private static void execSql(String sql) {

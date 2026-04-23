@@ -7,7 +7,6 @@ record Rule(Pattern pattern, TokenType type) {
 
   static final List<Rule> RULES = List.of(
       new Rule(Pattern.compile("^\\s+"), null), // skip whitespace
-
       new Rule(Pattern.compile("^SELECT\\b", Pattern.CASE_INSENSITIVE), TokenType.SELECT),
       new Rule(Pattern.compile("^USE\\b", Pattern.CASE_INSENSITIVE), TokenType.USE),
       new Rule(Pattern.compile("^CREATE\\b", Pattern.CASE_INSENSITIVE), TokenType.CREATE),
@@ -51,7 +50,7 @@ record Rule(Pattern pattern, TokenType type) {
 
       new Rule(Pattern.compile("^\"([^\"]*)\""), TokenType.STRING),
       new Rule(Pattern.compile("^\\d+(\\.\\d+)?"), TokenType.NUMBER),
-
+      new Rule(Pattern.compile("^\\."), TokenType.DOT),
       new Rule(Pattern.compile("^[a-zA-Z_][a-zA-Z0-9_]*"), TokenType.IDENTIFIER)
   );
 

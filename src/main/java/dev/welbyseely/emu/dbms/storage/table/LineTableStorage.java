@@ -57,7 +57,7 @@ public class LineTableStorage implements TableStorage {
 
       return new LinePointer(lineNumber);
     } catch (IOException e) {
-      throw new RuntimeException(e);
+      throw new RuntimeException("Failed to insert row", e);
     }
   }
 
@@ -82,7 +82,7 @@ public class LineTableStorage implements TableStorage {
         i++;
       }
     } catch (IOException e) {
-      throw new RuntimeException(e);
+      throw new RuntimeException("Failed to read RecordPointer from TableStorage", e);
     }
 
     return null;
@@ -106,7 +106,7 @@ public class LineTableStorage implements TableStorage {
         i++;
       }
     } catch (IOException e) {
-      throw new RuntimeException(e);
+      throw new RuntimeException("Failed to scan", e);
     }
 
     return pointers;
@@ -347,7 +347,7 @@ public class LineTableStorage implements TableStorage {
       // first data row will be at this line
       return line;
     } catch (IOException e) {
-      throw new RuntimeException(e);
+      throw new RuntimeException("Failed to create file", e);
     }
   }
 

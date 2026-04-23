@@ -64,4 +64,3 @@ DELETE employee WHERE emp_id = 2;
 SELECT * FROM employee;
 DELETE engineers;
 SELECT * FROM engineers;
-EXIT;
