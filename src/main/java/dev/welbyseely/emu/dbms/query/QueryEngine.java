@@ -1,6 +1,7 @@
 package dev.welbyseely.emu.dbms.query;
 
 import dev.welbyseely.emu.dbms.evaluation.Evaluator;
+import dev.welbyseely.emu.dbms.commands.query.SelectQuery;
 import dev.welbyseely.emu.dbms.table.Row;
 import dev.welbyseely.emu.dbms.table.Table;
 

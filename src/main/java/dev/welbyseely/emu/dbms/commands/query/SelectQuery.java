@@ -1,5 +1,6 @@
-package dev.welbyseely.emu.dbms.query;
+package dev.welbyseely.emu.dbms.commands.query;
 
+import dev.welbyseely.emu.dbms.query.Expression;
 import java.util.List;
 
 public record SelectQuery(

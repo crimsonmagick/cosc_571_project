@@ -1,8 +1,7 @@
-package dev.welbyseely.emu.dbms.evaluation;
+package dev.welbyseely.emu.dbms;
 
 import static dev.welbyseely.emu.dbms.constants.DirUtil.resolveBaseDir;
 
-import dev.welbyseely.emu.dbms.Dbms;
 import dev.welbyseely.emu.dbms.schema.Attribute;
 import dev.welbyseely.emu.dbms.schema.DataType;
 import dev.welbyseely.emu.dbms.schema.Schema;
@@ -18,7 +17,7 @@ import java.util.Comparator;
 import java.util.List;
 import java.util.Map;
 
-public class EvaluatorMain {
+public class EvaluationHarness {
 
   public static void main(String[] args) throws Exception {
     final Schema schema = new Schema(
@@ -80,7 +79,9 @@ public class EvaluatorMain {
 
     String sql = "SELECT name, gpa FROM STuDEnT WHERE name = Alice";
 
-    Dbms.get().getEngine().useDatabase("tempdb");
+//    Dbms.get().getEngine().useDatabase("tempdb");
+    Dbms.get().execute("CREATE tempdb");
+    Dbms.get().execute("USE tempdb");
     Dbms.get()
         .execute(sql)
         .forEach(System.out::println);

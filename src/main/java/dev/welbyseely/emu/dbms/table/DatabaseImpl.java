@@ -5,9 +5,9 @@ import static dev.welbyseely.emu.dbms.constants.DirUtil.resolveBaseDir;
 
 import dev.welbyseely.emu.dbms.exception.TableDoesNotExistException;
 import dev.welbyseely.emu.dbms.index.PrimaryIndex;
-import dev.welbyseely.emu.dbms.query.PreparedQuery;
+import dev.welbyseely.emu.dbms.commands.query.PreparedQuery;
 import dev.welbyseely.emu.dbms.query.QueryEngine;
-import dev.welbyseely.emu.dbms.query.SelectQuery;
+import dev.welbyseely.emu.dbms.commands.query.SelectQuery;
 import dev.welbyseely.emu.dbms.schema.Attribute;
 import dev.welbyseely.emu.dbms.schema.DataType;
 import dev.welbyseely.emu.dbms.schema.Schema;

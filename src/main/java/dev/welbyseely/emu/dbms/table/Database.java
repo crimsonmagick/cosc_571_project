@@ -1,6 +1,6 @@
 package dev.welbyseely.emu.dbms.table;
 
-import dev.welbyseely.emu.dbms.query.PreparedQuery;
+import dev.welbyseely.emu.dbms.commands.query.PreparedQuery;
 import dev.welbyseely.emu.dbms.schema.Schema;
 import java.util.List;
 

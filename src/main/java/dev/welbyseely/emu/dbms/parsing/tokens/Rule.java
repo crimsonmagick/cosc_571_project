@@ -9,6 +9,9 @@ record Rule(Pattern pattern, TokenType type) {
       new Rule(Pattern.compile("^\\s+"), null), // skip whitespace
 
       new Rule(Pattern.compile("^SELECT\\b", Pattern.CASE_INSENSITIVE), TokenType.SELECT),
+      new Rule(Pattern.compile("^USE\\b", Pattern.CASE_INSENSITIVE), TokenType.USE),
+      new Rule(Pattern.compile("^CREATE\\b", Pattern.CASE_INSENSITIVE), TokenType.CREATE),
+      new Rule(Pattern.compile("^EXIT\\b", Pattern.CASE_INSENSITIVE), TokenType.EXIT),
       new Rule(Pattern.compile("^FROM\\b", Pattern.CASE_INSENSITIVE), TokenType.FROM),
       new Rule(Pattern.compile("^WHERE\\b", Pattern.CASE_INSENSITIVE), TokenType.WHERE),
       new Rule(Pattern.compile("^AND\\b", Pattern.CASE_INSENSITIVE), TokenType.AND),

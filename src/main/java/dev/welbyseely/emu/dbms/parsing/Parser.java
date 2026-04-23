@@ -1,11 +1,14 @@
 package dev.welbyseely.emu.dbms.parsing;
 
+import dev.welbyseely.emu.dbms.commands.PreparedCommand;
+import dev.welbyseely.emu.dbms.commands.engine.CreateCommand;
+import dev.welbyseely.emu.dbms.commands.engine.ExitCommand;
+import dev.welbyseely.emu.dbms.commands.engine.UseCommand;
 import dev.welbyseely.emu.dbms.exception.DbmsParseException;
 import dev.welbyseely.emu.dbms.query.Comparison;
 import dev.welbyseely.emu.dbms.query.Expression;
 import dev.welbyseely.emu.dbms.query.Logical;
-import dev.welbyseely.emu.dbms.query.PreparedQuery;
-import dev.welbyseely.emu.dbms.query.SelectQuery;
+import dev.welbyseely.emu.dbms.commands.query.SelectQuery;
 import dev.welbyseely.emu.dbms.parsing.tokens.Token;
 import dev.welbyseely.emu.dbms.parsing.tokens.TokenType;
 import dev.welbyseely.emu.dbms.parsing.tokens.Tokenizer;
@@ -18,16 +21,44 @@ public class Parser {
   private int pos = 0;
 
   public Parser(final List<Token> tokens) {
+    if (tokens.isEmpty()) {
+      throw new IllegalArgumentException("Parser needs tokens");
+    }
     this.tokens = tokens;
   }
 
-//  public PreparedQuery parse() {
-//    if (tokens.isEmpty()) {
-//
-//    }
-//  }
+  public PreparedCommand parse() {
+    final TokenType firstToken = tokens.getFirst().type();
+    return switch (firstToken) {
+      case SELECT -> parseSelect();
+      case EXIT -> new ExitCommand();
+      case CREATE -> parseCreate();
+      case USE -> parseUse();
+      default -> throw new UnsupportedOperationException("Command not supported: " + firstToken);
+    };
+  }
 
-  public SelectQuery parseSelect() {
+  public CreateCommand parseCreate() {
+    expect(TokenType.CREATE);
+    final String databaseName = parseDatabaseName();
+    return new CreateCommand(databaseName);
+  }
+
+  public UseCommand parseUse() {
+    expect(TokenType.USE);
+    final String databaseName = parseDatabaseName();
+    return new UseCommand(databaseName);
+  }
+
+  private String parseDatabaseName() {
+    Token dbIdentifier = advance();
+    if (dbIdentifier.type() == TokenType.IDENTIFIER) {
+      return dbIdentifier.text();
+    }
+    throw new DbmsParseException("Expected identifier");
+  }
+
+  private SelectQuery parseSelect() {
     expect(TokenType.SELECT);
 
     List<String> columns = parseColumns();

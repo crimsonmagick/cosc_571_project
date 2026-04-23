@@ -6,5 +6,8 @@ public enum TokenType {
   COMMA,
   EQ, NEQ, LT, GT, LTE, GTE,
   AND, OR,
-  ASTERISK
+  ASTERISK,
+  EXIT,
+  USE,
+  CREATE
 }
