@@ -1,7 +1,7 @@
 package dev.welbyseely.emu.dbms;
 
+import dev.welbyseely.emu.dbms.commands.results.Result;
 import dev.welbyseely.emu.dbms.engine.DatabaseEngine;
-import dev.welbyseely.emu.dbms.table.Row;
 import java.util.List;
 
 public final class Dbms {
@@ -18,8 +18,12 @@ public final class Dbms {
     return INSTANCE;
   }
 
-  public List<Row> execute(String sql) {
+  public List<Result> execute(final String sql) {
     return engine.execute(sql);
+  }
+
+  public Result executeStatement(final String sql) {
+    return engine.executeStatement(sql);
   }
 
   public DatabaseEngine getEngine() {

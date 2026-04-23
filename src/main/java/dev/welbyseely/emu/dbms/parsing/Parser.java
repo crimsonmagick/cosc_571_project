@@ -28,13 +28,14 @@ public class Parser {
   }
 
   public PreparedCommand parse() {
-    final TokenType firstToken = tokens.getFirst().type();
-    return switch (firstToken) {
+    final Token firstToken = tokens.getFirst();
+    return switch (firstToken.type()) {
       case SELECT -> parseSelect();
       case EXIT -> new ExitCommand();
       case CREATE -> parseCreate();
       case USE -> parseUse();
-      default -> throw new UnsupportedOperationException("Command not supported: " + firstToken);
+      default ->
+          throw new UnsupportedOperationException("Command not supported: " + firstToken.text());
     };
   }
 

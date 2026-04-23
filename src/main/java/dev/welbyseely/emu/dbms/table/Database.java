@@ -1,8 +1,8 @@
 package dev.welbyseely.emu.dbms.table;
 
 import dev.welbyseely.emu.dbms.commands.query.PreparedQuery;
+import dev.welbyseely.emu.dbms.commands.results.Result;
 import dev.welbyseely.emu.dbms.schema.Schema;
-import java.util.List;
 
 public interface Database {
 
@@ -12,6 +12,6 @@ public interface Database {
 
   String getName();
 
-  List<Row> executeQuery(PreparedQuery preparedQuery);
+  Result executeQuery(PreparedQuery preparedQuery);
 
 }

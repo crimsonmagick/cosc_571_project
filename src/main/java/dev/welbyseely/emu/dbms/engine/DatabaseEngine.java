@@ -5,15 +5,18 @@ import dev.welbyseely.emu.dbms.commands.engine.CreateCommand;
 import dev.welbyseely.emu.dbms.commands.engine.ExitCommand;
 import dev.welbyseely.emu.dbms.commands.engine.UseCommand;
 import dev.welbyseely.emu.dbms.commands.query.PreparedQuery;
+import dev.welbyseely.emu.dbms.commands.results.ErrorResult;
+import dev.welbyseely.emu.dbms.commands.results.ExitResult;
+import dev.welbyseely.emu.dbms.commands.results.Result;
+import dev.welbyseely.emu.dbms.commands.results.VoidResult;
 import dev.welbyseely.emu.dbms.exception.NoActiveDatabaseException;
 import dev.welbyseely.emu.dbms.parsing.Parser;
 import dev.welbyseely.emu.dbms.parsing.tokens.Token;
 import dev.welbyseely.emu.dbms.parsing.tokens.Tokenizer;
-import dev.welbyseely.emu.dbms.commands.query.SelectQuery;
-import dev.welbyseely.emu.dbms.query.QueryEngine;
 import dev.welbyseely.emu.dbms.table.DatabaseImpl;
 import dev.welbyseely.emu.dbms.table.Row;
 import dev.welbyseely.emu.dbms.table.Database;
+import java.util.Arrays;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -31,40 +34,59 @@ public class DatabaseEngine {
     this.activeDatabase = null;
   }
 
-  public List<Row> execute(String sql) {
-    List<Token> tokens = tokenizer.tokenize(sql);
-
-    Parser parser = new Parser(tokens);
-    PreparedCommand preparedCommand = parser.parse();
-    if (preparedCommand instanceof PreparedQuery pq) {
-      if (activeDatabase == null) {
-        throw new NoActiveDatabaseException("No active database selected!");
-      }
-      return activeDatabase.executeQuery(pq);
-    }
-    return executeCommand(preparedCommand);
+  public List<Result> execute(final String statements) {
+    return Arrays.stream(statements.split(";"))
+        .map(this::executeStatement)
+        .toList();
   }
 
-  private List<Row> executeCommand(final PreparedCommand preparedCommand) {
-    switch (preparedCommand) {
-      case ExitCommand exitCommand -> System.out.println("TODO: Exit");
+  private String sanitizeStatement(final String sql) {
+    if (sql.endsWith(";")) {
+      return sql.substring(0, sql.length() - 1);
+    }
+    return sql;
+  }
+
+  public Result executeStatement(final String sql) {
+    try {
+      final String sanitizedSql = sanitizeStatement(sql);
+      List<Token> tokens = tokenizer.tokenize(sanitizedSql);
+
+      Parser parser = new Parser(tokens);
+      PreparedCommand preparedCommand = parser.parse();
+      if (preparedCommand instanceof PreparedQuery pq) {
+        if (activeDatabase == null) {
+          throw new NoActiveDatabaseException("No active database selected!");
+        }
+        return activeDatabase.executeQuery(pq);
+      }
+      return executeCommand(preparedCommand);
+    } catch (final RuntimeException e) {
+      return new ErrorResult("Failed to execute command. Reason: " + e.getMessage());
+    }
+  }
+
+  private Result executeCommand(final PreparedCommand preparedCommand) {
+    return switch (preparedCommand) {
+      case ExitCommand exitCommand -> new ExitResult();
       case CreateCommand(String databaseName) -> createDatabase(databaseName);
       case UseCommand(String databaseName) -> useDatabase(databaseName);
       case null, default ->
           throw new UnsupportedOperationException("Command not supported: " + preparedCommand);
-    }
-    return null;
+    };
   }
 
-  private void createDatabase(final String databaseName) {
+  private VoidResult createDatabase(final String databaseName) {
     final String normDbName = databaseName.toLowerCase();
     final Database database = new DatabaseImpl(normDbName);
     databases.put(normDbName, database);
+    return new VoidResult();
   }
 
-  private void useDatabase(final String databaseName) {
+  private VoidResult useDatabase(final String databaseName) {
     final String normDbName = databaseName.toLowerCase();
     activeDatabase = Optional.ofNullable(databases.get(normDbName)).orElseThrow(() ->
         new NoActiveDatabaseException("No database found with name " + databaseName));
+    return new VoidResult();
   }
 }

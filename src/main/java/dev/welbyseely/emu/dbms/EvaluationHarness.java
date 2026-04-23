@@ -2,6 +2,8 @@ package dev.welbyseely.emu.dbms;
 
 import static dev.welbyseely.emu.dbms.constants.DirUtil.resolveBaseDir;
 
+import dev.welbyseely.emu.dbms.commands.results.Result;
+import dev.welbyseely.emu.dbms.commands.results.TupleResult;
 import dev.welbyseely.emu.dbms.schema.Attribute;
 import dev.welbyseely.emu.dbms.schema.DataType;
 import dev.welbyseely.emu.dbms.schema.Schema;
@@ -77,13 +79,13 @@ public class EvaluationHarness {
 
     System.out.println("\n=== Testing Query engine ===");
 
-    String sql = "SELECT name, gpa FROM STuDEnT WHERE name = Alice";
+    String sql = "SELECT name, gpa FROM STuDEnT WHERE name = Alice;";
 
-//    Dbms.get().getEngine().useDatabase("tempdb");
     Dbms.get().execute("CREATE tempdb");
     Dbms.get().execute("USE tempdb");
-    Dbms.get()
-        .execute(sql)
+    Result result = Dbms.get()
+        .executeStatement(sql);
+    ((TupleResult) result).tuples()
         .forEach(System.out::println);
 
   }
