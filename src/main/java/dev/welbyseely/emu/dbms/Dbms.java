@@ -108,7 +108,7 @@ public final class Dbms {
 
   private void printResult(Result result, PrintStream out) {
     if (result instanceof ErrorResult err) {
-      out.println("Error: " + err.message());
+      out.println("Error - " + err.message());
     } else if (result instanceof MessageResult msg) {
       out.println(msg.message());
     } else if (result instanceof TupleResult tuples) {

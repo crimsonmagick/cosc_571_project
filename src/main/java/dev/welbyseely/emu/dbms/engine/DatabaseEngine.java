@@ -107,21 +107,27 @@ public class DatabaseEngine {
     };
   }
 
-  private VoidResult createDatabase(final String databaseName) {
+  private MessageResult createDatabase(final String databaseName) {
     final String normDbName = databaseName.toLowerCase();
     if (databases.containsKey(normDbName)) {
       throw new DatabaseEngineException(
           "Database with name \"" + databaseName + "\" already exists.");
     }
     final Database database = new DatabaseImpl(normDbName);
+    final Path dbPath = resolveBaseDir().resolve(normDbName);
+    try {
+      Files.createDirectories(dbPath);
+    } catch (final IOException e) {
+      throw new RuntimeException("Failed to create database", e);
+    }
     databases.put(normDbName, database);
-    return new VoidResult();
+    return new MessageResult("Created database with name " + databaseName);
   }
 
-  private VoidResult useDatabase(final String databaseName) {
+  private MessageResult useDatabase(final String databaseName) {
     final String normDbName = databaseName.toLowerCase();
     activeDatabase = Optional.ofNullable(databases.get(normDbName)).orElseThrow(() ->
         new NoActiveDatabaseException("No database found with name " + databaseName));
-    return new VoidResult();
+    return new MessageResult("Using database with name " + databaseName);
   }
 }

@@ -37,12 +37,15 @@ public class QueryEngine {
   }
 
   public TupleResult executeSelect(SelectQuery query) {
+    List<Table> tables = query.tables().stream().map(database::getTable).toList();
+    Schema schema = combineSchemas(tables);
+    if (query.aggregate() == null) {
+      validateProjection(query, schema);
+    }
     List<Row> rows;
 
-    // Fast path: PK lookup
-    // !IMPORTANT
     if (query.tables().size() == 1) {
-      Table table = database.getTable(query.tables().getFirst());
+      Table table = tables.getFirst();
 
       if (isPrimaryKeyEquality(query.where(), table)) {
         Comparison c = (Comparison) query.where();
@@ -62,10 +65,7 @@ public class QueryEngine {
       return new TupleResult(List.of(executeAggregate(rows, query)));
     }
 
-    validateProjection(query, rows);
-
     List<Row> results = new ArrayList<>();
-
     for (Row row : rows) {
       results.add(project(row, query.columns()));
     }
@@ -395,19 +395,13 @@ public class QueryEngine {
     return new Row(projected);
   }
 
-  private void validateProjection(SelectQuery query, List<Row> rows) {
+  private void validateProjection(SelectQuery query, Schema schema) {
     if (query.columns().size() == 1 && query.columns().get(0).equals("*")) {
       return;
     }
 
-    if (rows.isEmpty()) {
-      return;
-    }
-
-    Row sample = rows.get(0);
-
     for (String col : query.columns()) {
-      if (!sample.values().containsKey(col)) {
+      if (!schema.hasAttribute(col)) {
         throw new InvalidProjectionException("Unknown column: " + col);
       }
     }

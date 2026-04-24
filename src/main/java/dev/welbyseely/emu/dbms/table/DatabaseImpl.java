@@ -12,7 +12,6 @@ import dev.welbyseely.emu.dbms.commands.query.RenameQuery;
 import dev.welbyseely.emu.dbms.commands.query.UpdateQuery;
 import dev.welbyseely.emu.dbms.commands.results.MessageResult;
 import dev.welbyseely.emu.dbms.commands.results.Result;
-import dev.welbyseely.emu.dbms.commands.results.VoidResult;
 import dev.welbyseely.emu.dbms.exception.TableAlreadyExistsException;
 import dev.welbyseely.emu.dbms.exception.TableDoesNotExistException;
 import dev.welbyseely.emu.dbms.exception.TableStorageFileAlreadyExistsException;
