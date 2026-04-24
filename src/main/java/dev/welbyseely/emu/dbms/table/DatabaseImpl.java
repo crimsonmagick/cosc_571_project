@@ -2,7 +2,6 @@ package dev.welbyseely.emu.dbms.table;
 
 
 import static dev.welbyseely.emu.dbms.constants.DirUtil.resolveBaseDir;
-import static dev.welbyseely.emu.dbms.util.DatatypeParser.parse;
 
 import dev.welbyseely.emu.dbms.commands.query.CreateTableQuery;
 import dev.welbyseely.emu.dbms.commands.query.DeleteQuery;
@@ -13,9 +12,7 @@ import dev.welbyseely.emu.dbms.commands.query.RenameQuery;
 import dev.welbyseely.emu.dbms.commands.query.UpdateQuery;
 import dev.welbyseely.emu.dbms.commands.results.MessageResult;
 import dev.welbyseely.emu.dbms.commands.results.Result;
-import dev.welbyseely.emu.dbms.commands.results.TupleResult;
 import dev.welbyseely.emu.dbms.commands.results.VoidResult;
-import dev.welbyseely.emu.dbms.evaluation.Evaluator;
 import dev.welbyseely.emu.dbms.exception.TableAlreadyExistsException;
 import dev.welbyseely.emu.dbms.exception.TableDoesNotExistException;
 import dev.welbyseely.emu.dbms.exception.TableStorageFileAlreadyExistsException;
@@ -27,7 +24,6 @@ import dev.welbyseely.emu.dbms.schema.Attribute;
 import dev.welbyseely.emu.dbms.schema.DataType;
 import dev.welbyseely.emu.dbms.schema.Schema;
 import dev.welbyseely.emu.dbms.storage.table.RecordPointer;
-import dev.welbyseely.emu.dbms.storage.table.RowEntry;
 import dev.welbyseely.emu.dbms.storage.table.TableStorage;
 import dev.welbyseely.emu.dbms.storage.table.TableStorageProvider;
 import dev.welbyseely.emu.dbms.tree.BinarySearchTree;
@@ -36,11 +32,8 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.HashMap;
-import java.util.HashSet;
-import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.Set;
 
 public class DatabaseImpl implements Database {
 
@@ -54,6 +47,13 @@ public class DatabaseImpl implements Database {
     this.dbPath = resolveBaseDir().resolve(dbName);
     this.queryEngine = new QueryEngine(this);
     preloadSchemas();
+  }
+
+  private static Attribute getPrimaryKeyAttribute(Schema schema) {
+    return schema.attributes().stream()
+        .filter(Attribute::primaryKey)
+        .findFirst()
+        .orElse(null);
   }
 
   public Table createTable(Schema schema) {
@@ -81,41 +81,15 @@ public class DatabaseImpl implements Database {
   @Override
   public Result executeQuery(final PreparedQuery preparedQuery) {
     if (preparedQuery instanceof SelectQuery q) {
-      var rows = queryEngine.executeSelect(q);
-      return new TupleResult(rows);
+      return queryEngine.executeSelect(q);
     }
     if (preparedQuery instanceof CreateTableQuery(String table, List<Attribute> attributes)) {
       final Schema schema = new Schema(table, attributes);
       cache.put(schema.schemaName().toLowerCase(), createTable(schema));
-      return new VoidResult();
+      return new MessageResult("Created table with name " + table);
     }
     if (preparedQuery instanceof InsertQuery(String tableName, List<String> values)) {
-      final Table table = getTable(tableName);
-      final Schema schema = table.getSchema();
-
-      final List<Attribute> attrs = schema.attributes();
-
-      if (values.size() != attrs.size()) {
-        throw new RuntimeException(
-            "Value count does not match schema. Expected " + attrs.size() +
-                " but got " + values.size());
-      }
-
-      final LinkedHashMap<String, Object> rowValues = new LinkedHashMap<>();
-
-      for (int i = 0; i < attrs.size(); i++) {
-        Attribute attr = attrs.get(i);
-        String raw = values.get(i);
-
-        DataType type = DataType.valueOf(attr.type());
-        Object parsed = parse(raw, type);
-
-        rowValues.put(attr.name(), parsed);
-      }
-
-      Row row = new Row(rowValues);
-      table.insert(row);
-      return new VoidResult();
+      return queryEngine.executeInsertQuery(tableName, values);
     }
     if (preparedQuery instanceof DescribeQuery dq) {
       if (dq.all()) {
@@ -127,120 +101,19 @@ public class DatabaseImpl implements Database {
       return new MessageResult(formatDescribe(table.getSchema()));
     }
     if (preparedQuery instanceof UpdateQuery uq) {
-
-      Table table = getTable(uq.table());
-      Schema schema = table.getSchema();
-      Evaluator evaluator = new Evaluator();
-
-      // Phase 1: collect updates
-      List<RowEntry> matches = new ArrayList<>();
-      List<Row> newRows = new ArrayList<>();
-
-      for (RowEntry entry : table.scan()) {
-        Row row = entry.row();
-
-        if (evaluator.eval(uq.where(), row, schema)) {
-
-          Row newRow = new Row(new LinkedHashMap<>(row.values()));
-
-          for (var e : uq.updates().entrySet()) {
-            Attribute attr = schema.getAttribute(e.getKey());
-            Object parsed = parse(e.getValue(), DataType.valueOf(attr.type()));
-            newRow.values().put(attr.name(), parsed);
-          }
-
-          matches.add(entry);
-          newRows.add(newRow);
-        }
-      }
-
-      // Phase 2: validate PK constraints
-      Attribute pkAttr = schema.attributes().stream()
-          .filter(Attribute::primaryKey)
-          .findFirst()
-          .orElse(null);
-
-      if (pkAttr != null) {
-
-        Set<Object> newKeys = new HashSet<>();
-
-        Set<Object> oldKeys = new HashSet<>();
-
-        for (int i = 0; i < matches.size(); i++) {
-          Row oldRow = matches.get(i).row();
-          Row newRow = newRows.get(i);
-
-          Object oldKey = oldRow.get(pkAttr.name());
-          Object newKey = newRow.get(pkAttr.name());
-
-          oldKeys.add(oldKey);
-
-          // duplicate within update set
-          if (!newKeys.add(newKey)) {
-            throw new RuntimeException("Duplicate primary key: " + newKey);
-          }
-        }
-
-        // Check conflicts with existing rows NOT being updated
-        for (Object newKey : newKeys) {
-          var existing = table.getByPrimaryKey(newKey);
-
-          if (existing.isPresent()) {
-            Object existingKey = existing.get().get(pkAttr.name());
-
-            // if it's not one of the rows we're replacing → conflict
-            if (!oldKeys.contains(existingKey)) {
-              throw new RuntimeException("Duplicate primary key: " + newKey);
-            }
-          }
-        }
-      }
-
-      // Phase 3: apply updates
-      for (int i = 0; i < matches.size(); i++) {
-        RowEntry entry = matches.get(i);
-        Row newRow = newRows.get(i);
-
-        table.update(entry.pointer(), newRow);
-      }
-
-      return new VoidResult();
+      return queryEngine.executeUpdateQuery(uq);
     }
     if (preparedQuery instanceof DeleteQuery dq) {
-
-      Table table = getTable(dq.table());
-      Schema schema = table.getSchema();
-      Evaluator evaluator = new Evaluator();
-
-      if (dq.where() == null) {
-        table.drop();
-        cache.remove(dq.table().toLowerCase());
-        return new MessageResult("Deleted table " + table.getSchema().schemaName());
-      }
-
-      List<RecordPointer> toDelete = new ArrayList<>();
-
-      for (RowEntry entry : table.scan()) {
-        if (evaluator.eval(dq.where(), entry.row(), schema)) {
-          toDelete.add(entry.pointer());
-        }
-      }
-
-      for (RecordPointer ptr : toDelete) {
-        table.delete(ptr);
-      }
-
-      return new MessageResult("Deleted from table " + table.getSchema().schemaName());
+      queryEngine.executeDeleteQuery(dq);
     }
     if (preparedQuery instanceof RenameQuery rq) {
       Table table = getTable(rq.table());
-      table.rename(rq.newNames());
-      return new VoidResult();
+      return new MessageResult("Renamed table values.");
     }
     if (preparedQuery instanceof LetQuery lq) {
 
       // run SELECT
-      List<Row> rows = queryEngine.executeSelect(lq.select());
+      List<Row> rows = queryEngine.executeSelect(lq.select()).tuples();
 
       List<String> columns = lq.select().columns();
 
@@ -267,10 +140,16 @@ public class DatabaseImpl implements Database {
         table.insert(row);
       }
 
-      return new VoidResult();
+      return new MessageResult("Let Query, created table " + table.getSchema().schemaName());
     }
     throw new UnsupportedOperationException(
         "Unsupported preparedQuery type, class=" + preparedQuery.getClass());
+  }
+
+  // FIXME code smell - class responsibilities aren't properly bounded
+  @Override
+  public Map<String, Table> getCache() {
+    return cache;
   }
 
   private DataType resolveColumnType(SelectQuery select, String column) {
@@ -347,7 +226,6 @@ public class DatabaseImpl implements Database {
     }
   }
 
-
   private Table loadTable(String name) {
     Path tablePath = dbPath.resolve(name.toLowerCase() + ".tbl");
 
@@ -402,13 +280,6 @@ public class DatabaseImpl implements Database {
           s -> s
       );
     };
-  }
-
-  private static Attribute getPrimaryKeyAttribute(Schema schema) {
-    return schema.attributes().stream()
-        .filter(Attribute::primaryKey)
-        .findFirst()
-        .orElse(null);
   }
 
   private void preloadSchemas() {
