@@ -16,7 +16,7 @@ public class ConsoleApp {
     while (true) {
 
       // prompt changes depending on whether we're mid-statement
-      System.out.print(buffer.isEmpty() ? "> " : "... ");
+      System.out.print(buffer.isEmpty() ? "> " : "");
 
       String line = scanner.nextLine();
 

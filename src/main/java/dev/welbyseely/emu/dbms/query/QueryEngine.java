@@ -39,6 +39,7 @@ public class QueryEngine {
   public TupleResult executeSelect(SelectQuery query) {
     List<Table> tables = query.tables().stream().map(database::getTable).toList();
     Schema schema = combineSchemas(tables);
+    validateWhere(query.where(), schema);
     if (query.aggregate() == null) {
       validateProjection(query, schema);
     }
@@ -106,7 +107,12 @@ public class QueryEngine {
 
     Table table = database.getTable(uq.table());
     Schema schema = table.getSchema();
-    Evaluator evaluator = new Evaluator();
+    validateWhere(uq.where(), schema);
+    for (String col : uq.updates().keySet()) {
+      if (!schema.hasAttribute(col)) {
+        throw new RuntimeException("Unknown column: " + col);
+      }
+    }
 
     // Phase 1: collect updates
     List<RowEntry> matches = new ArrayList<>();
@@ -120,7 +126,13 @@ public class QueryEngine {
         Row newRow = new Row(new LinkedHashMap<>(row.values()));
 
         for (var e : uq.updates().entrySet()) {
-          Attribute attr = schema.getAttribute(e.getKey());
+          String col = e.getKey();
+
+          if (!schema.hasAttribute(col)) {
+            throw new RuntimeException("Unknown column: " + col);
+          }
+
+          Attribute attr = schema.getAttribute(col);
           Object parsed = parse(e.getValue(), DataType.valueOf(attr.type()));
           newRow.values().put(attr.name(), parsed);
         }
@@ -180,7 +192,7 @@ public class QueryEngine {
       table.update(entry.pointer(), newRow);
     }
 
-    return new MessageResult("Update succseful");
+    return new MessageResult("Update successful");
 
   }
 
@@ -188,7 +200,7 @@ public class QueryEngine {
 
     Table table = database.getTable(dq.table());
     Schema schema = table.getSchema();
-    Evaluator evaluator = new Evaluator();
+    validateWhere(dq.where(), schema);
 
     if (dq.where() == null) {
       table.drop();
@@ -266,7 +278,10 @@ public class QueryEngine {
     return new Schema("joined", attrs);
   }
 
-  private Row computeAverage(List<Row> rows, String column, List<Row> allRows) {
+  private Row computeAverage(List<Row> rows, String column) {
+    if (!rows.isEmpty() && !rows.get(0).values().containsKey(column)) {
+      throw new RuntimeException("Unknown column: " + column);
+    }
     double sum = 0.0;
     int count = 0;
 
@@ -345,15 +360,17 @@ public class QueryEngine {
       case COUNT -> computeCount(rows);
       case MIN -> computeMin(rows, agg.column());
       case MAX -> computeMax(rows, agg.column());
-      case AVERAGE -> computeAverage(rows, agg.column(), rows);
+      case AVERAGE -> computeAverage(rows, agg.column());
     };
   }
 
   private boolean isPrimaryKeyEquality(Expression where, Table table) {
-    if (!(where instanceof Comparison(String left, String op, String right))) {
+    if (!(where instanceof Comparison c)) {
       return false;
     }
-
+    String left = c.left();
+    String op = c.op();
+    String right = c.right();
     if (!op.equals("=")) {
       return false;
     }
@@ -404,6 +421,27 @@ public class QueryEngine {
       if (!schema.hasAttribute(col)) {
         throw new InvalidProjectionException("Unknown column: " + col);
       }
+    }
+  }
+
+  private void validateWhere(Expression expr, Schema schema) {
+    if (expr == null) {
+      return;
+    }
+
+    if (expr instanceof Comparison c) {
+      if (!schema.hasAttribute(c.left())) {
+        throw new RuntimeException("Unknown column: " + c.left());
+      }
+      if (schema.hasAttribute(c.right())) {
+        return;
+      }
+      return;
+    }
+
+    if (expr instanceof Logical l) {
+      validateWhere(l.left(), schema);
+      validateWhere(l.right(), schema);
     }
   }
 }

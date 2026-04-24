@@ -107,7 +107,9 @@ public class DatabaseImpl implements Database {
     }
     if (preparedQuery instanceof RenameQuery rq) {
       Table table = getTable(rq.table());
-      return new MessageResult("Renamed table values.");
+      table.rename(rq.newNames());
+      return new MessageResult(
+          "Renamed table values of table " + rq.table() + " to " + rq.newNames());
     }
     if (preparedQuery instanceof LetQuery lq) {
 
