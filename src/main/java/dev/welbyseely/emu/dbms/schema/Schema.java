@@ -1,7 +1,9 @@
 package dev.welbyseely.emu.dbms.schema;
 
+import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
+import java.util.Optional;
 
 public record Schema(String schemaName, List<Attribute> attributes) {
 
@@ -19,6 +21,13 @@ public record Schema(String schemaName, List<Attribute> attributes) {
   public boolean hasAttribute(final String name) {
     return this.attributes().stream()
         .anyMatch(attr -> attr.name().equals(name));
+  }
+
+  public Optional<String> getPrimaryKeyName() {
+    return attributes.stream()
+        .filter(Attribute::primaryKey)
+        .findFirst()
+        .map(Attribute::name);
   }
 
 }

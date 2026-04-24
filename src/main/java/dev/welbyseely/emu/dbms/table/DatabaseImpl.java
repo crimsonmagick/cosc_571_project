@@ -48,12 +48,12 @@ public class DatabaseImpl implements Database {
   private final Path dbPath;
   private final Map<String, Table> cache = new HashMap<>();
   private final QueryEngine queryEngine;
-  private final Evaluator evaluator = new Evaluator();
 
   public DatabaseImpl(final String dbName) {
     this.dbName = dbName;
     this.dbPath = resolveBaseDir().resolve(dbName);
     this.queryEngine = new QueryEngine(this);
+    preloadSchemas();
   }
 
   public Table createTable(Schema schema) {
@@ -230,7 +230,7 @@ public class DatabaseImpl implements Database {
         table.delete(ptr);
       }
 
-      return new MessageResult("Deleted table " + table.getSchema().schemaName());
+      return new MessageResult("Deleted from table " + table.getSchema().schemaName());
     }
     if (preparedQuery instanceof RenameQuery rq) {
       Table table = getTable(rq.table());
@@ -409,6 +409,18 @@ public class DatabaseImpl implements Database {
         .filter(Attribute::primaryKey)
         .findFirst()
         .orElse(null);
+  }
+
+  private void preloadSchemas() {
+    List<TableStorage> storages = TableStorageProvider.readTablesInDatabase(dbPath);
+
+    for (TableStorage storage : storages) {
+      Schema schema = storage.getSchema();
+
+      Table table = new Table(schema, storage, buildIndex(schema));
+
+      cache.put(schema.schemaName().toLowerCase(), table);
+    }
   }
 
 

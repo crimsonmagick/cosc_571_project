@@ -16,6 +16,7 @@ import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 
 public class QueryEngine {
 
@@ -164,7 +165,28 @@ public class QueryEngine {
   }
 
   public List<Row> executeSelect(SelectQuery query) {
-    List<Row> rows = buildRows(query);
+
+    List<Row> rows;
+
+    // Fast path: PK lookup
+    // !IMPORTANT
+    if (query.tables().size() == 1) {
+      Table table = database.getTable(query.tables().getFirst());
+
+      if (isPrimaryKeyEquality(query.where(), table)) {
+        Comparison c = (Comparison) query.where();
+        Object key = primaryKeyValue(c, table);
+
+        rows = table.getByPrimaryKey(key)
+            .map(List::of)
+            .orElse(List.of());
+      } else {
+        rows = buildRows(query);
+      }
+
+    } else {
+      rows = buildRows(query);
+    }
 
     if (query.aggregate() != null) {
       return List.of(executeAggregate(rows, query));
@@ -213,4 +235,38 @@ public class QueryEngine {
 
     return new Row(projected);
   }
+
+  private boolean isPrimaryKeyEquality(Expression where, Table table) {
+    if (!(where instanceof Comparison(String left, String op, String right))) {
+      return false;
+    }
+
+    if (!op.equals("=")) {
+      return false;
+    }
+
+    Optional<String> pk = table.getSchema().getPrimaryKeyName();
+    if (pk.isEmpty()) {
+      return false;
+    }
+
+    if (!left.equalsIgnoreCase(pk.get())) {
+      return false;
+    }
+
+    // right side is constant iff it is not an attribute in this table schema
+    return !table.getSchema().hasAttribute(right);
+  }
+
+  private Object primaryKeyValue(Comparison c, Table table) {
+    String pkName = table.getSchema()
+        .getPrimaryKeyName()
+        .orElseThrow();
+
+    Attribute pkAttr = table.getSchema().getAttribute(pkName);
+    DataType type = DataType.valueOf(pkAttr.type());
+
+    return dev.welbyseely.emu.dbms.util.DatatypeParser.parse(c.right(), type);
+  }
+
 }

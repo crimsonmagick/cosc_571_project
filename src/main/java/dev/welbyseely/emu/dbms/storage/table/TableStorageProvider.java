@@ -26,10 +26,20 @@ public class TableStorageProvider {
     return new LineTableStorage(path, schema);
   }
 
-  public static List<TableStorage> readAllTables() {
-    return tablePaths().stream()
-        .map(TableStorageProvider::readTableStorage)
-        .toList();
+  public static List<TableStorage> readTablesInDatabase(Path dbPath) {
+    if (!Files.exists(dbPath) || !Files.isDirectory(dbPath)) {
+      return List.of();
+    }
+
+    try (var stream = Files.list(dbPath)) {
+      return stream
+          .filter(Files::isRegularFile)
+          .filter(p -> p.getFileName().toString().endsWith(TABLE_EXTENSION))
+          .map(TableStorageProvider::readTableStorage)
+          .toList();
+    } catch (Exception e) {
+      throw new TableStorageException("Unable to list tables in: " + dbPath, e);
+    }
   }
 
   private static List<Path> tablePaths() {

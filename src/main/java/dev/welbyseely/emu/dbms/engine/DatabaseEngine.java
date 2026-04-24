@@ -1,5 +1,7 @@
 package dev.welbyseely.emu.dbms.engine;
 
+import static dev.welbyseely.emu.dbms.constants.DirUtil.resolveBaseDir;
+
 import dev.welbyseely.emu.dbms.commands.PreparedCommand;
 import dev.welbyseely.emu.dbms.commands.engine.CreateDatabaseCommand;
 import dev.welbyseely.emu.dbms.commands.engine.ExitCommand;
@@ -7,12 +9,16 @@ import dev.welbyseely.emu.dbms.commands.engine.InputCommand;
 import dev.welbyseely.emu.dbms.commands.engine.UseCommand;
 import dev.welbyseely.emu.dbms.commands.query.PreparedQuery;
 import dev.welbyseely.emu.dbms.commands.results.*;
+import dev.welbyseely.emu.dbms.exception.DatabaseEngineException;
 import dev.welbyseely.emu.dbms.exception.NoActiveDatabaseException;
 import dev.welbyseely.emu.dbms.parsing.Parser;
 import dev.welbyseely.emu.dbms.parsing.tokens.Token;
 import dev.welbyseely.emu.dbms.parsing.tokens.Tokenizer;
 import dev.welbyseely.emu.dbms.table.DatabaseImpl;
 import dev.welbyseely.emu.dbms.table.Database;
+import java.io.IOException;
+import java.nio.file.Files;
+import java.nio.file.Path;
 import java.util.Arrays;
 import java.util.HashMap;
 import java.util.List;
@@ -29,6 +35,31 @@ public class DatabaseEngine {
     this.tokenizer = new Tokenizer();
     this.databases = new HashMap<>();
     this.activeDatabase = null;
+    loadExistingDatabases();
+  }
+
+  private void loadExistingDatabases() {
+    Path baseDir = resolveBaseDir();
+
+    if (!Files.exists(baseDir)) {
+      return;
+    }
+
+    try (var stream = Files.list(baseDir)) {
+      stream
+          .filter(Files::isDirectory)
+          .forEach(path -> {
+            String dbName = path.getFileName().toString().toLowerCase();
+
+            // initialize database from directory
+            Database db = new DatabaseImpl(dbName);
+
+            databases.put(dbName, db);
+          });
+
+    } catch (final IOException e) {
+      throw new DatabaseEngineException("Failed to load databases from disk", e);
+    }
   }
 
   public List<Result> execute(final String statements) {
@@ -78,6 +109,10 @@ public class DatabaseEngine {
 
   private VoidResult createDatabase(final String databaseName) {
     final String normDbName = databaseName.toLowerCase();
+    if (databases.containsKey(normDbName)) {
+      throw new DatabaseEngineException(
+          "Database with name \"" + databaseName + "\" already exists.");
+    }
     final Database database = new DatabaseImpl(normDbName);
     databases.put(normDbName, database);
     return new VoidResult();
